@@ -24,17 +24,22 @@ program = \
 
 class Compiler:
 
-    def __init__(self, program):
+    def __init__(self):
+        self.init()
+
+    def init(self):
         self.count = 0
-        self.ast = AST.parse(program)
-        print(AST.dump(self.ast, indent=4))
+        self.ast = None
         self.asm = x86.X86AsmUtils()
 
     def gen_sym(self, name):
         self.count += 1
         return name + "_" + str(self.count)
 
-    def compile(self):
+    def compile(self, program, print_ast=False):
+        self.init()
+        self.ast = AST.parse(program)
+        if print_ast: print(AST.dump(self.ast, indent=4))
         self.asm.emit_header()
         self.compile_ast(self.ast)
         self.asm.emit_tail()
@@ -91,5 +96,5 @@ class Compiler:
                 raise NotImplementedError(f"language feature not supported for {type(unknown)}")
 
 if __name__ == "__main__":
-    asm_code = Compiler(program).compile()
+    asm_code = Compiler().compile(program, print_ast=True)
     rt.run_asm(asm_code, keep_asm=True)
