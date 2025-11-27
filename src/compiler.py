@@ -1,6 +1,8 @@
 import ast as AST
 import runtime as rt
 import asm as x86
+
+# Keep this formatting to avoid IndentationError
 program = \
 """
 #---42 # result: -42
