@@ -2,7 +2,6 @@ class X86AsmUtils:
 
     def __init__(self):
         self.code = ""
-        self.emit_header()
 
     def emit_header(self):
         self.code += "DEFAULT REL" + "\n"
@@ -10,7 +9,7 @@ class X86AsmUtils:
         self.code += "\t \t" + "global _entry" + "\n"
         self.emit_label("_entry")
 
-    def wrapup(self):
+    def emit_tail(self):
         self.code += "\t \t" + "ret" + "\n\n" + "section .note.GNU-stack noexec"
 
     def emit_instr(self, instr):

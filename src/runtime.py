@@ -1,7 +1,7 @@
 import subprocess
 import os
 
-def run_asm(nasm_code, filename="program"):
+def run_asm(nasm_code, filename="program", keep_asm=False):
 
     # Write NASM code to a file
     with open(f"{filename}.asm", "w") as f:
@@ -17,6 +17,6 @@ def run_asm(nasm_code, filename="program"):
     print(result.stdout)
 
     # Clean up files
-    os.remove(f"{filename}.asm")
+    if keep_asm: os.remove(f"{filename}.asm")
     os.remove(f"{filename}.o")
     os.remove(f"{filename}")

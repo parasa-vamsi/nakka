@@ -1,5 +1,6 @@
 import ast as AST
 import runtime as rt
+import asm as x86
 program = \
 """
 #---42 # result: -42
@@ -16,74 +17,77 @@ program = \
 #5 if (~-1) else (2 if 1 else 0) # result 2
 #5 if (~-1) else (2 if 0 else -5) # result -5
 (5 if 0 else 6) if (4 if 1 else -4) else (3 if 0 else -3)  # result: 6
+
 """
 
-ast = AST.parse(program)
-print(AST.dump(ast, indent=4))
+class Compiler:
 
-count = -1
-def gen_sym(name):
-    global count
-    count += 1
-    return name + "_" + str(count)
+    def __init__(self, program):
+        self.count = 0
+        self.ast = AST.parse(program)
+        print(AST.dump(self.ast, indent=4))
+        self.asm = x86.X86AsmUtils()
 
+    def gen_sym(self, name):
+        self.count += 1
+        return name + "_" + str(self.count)
 
-
-def compile(node):
-    global asm
-    match node:
-        case AST.Module(body):
-            print("Compiling module")
-            for n in body:
-                compile(n)
-
-        case AST.Expr(value=v):
-            print("Compiling Expr")
-            compile(v)
-
-        case AST.Constant(value=v):
-            print("Compiling Value")
-            asm += f"\t mov rax, {v} \n"
-
-        case AST.UnaryOp(op=uo, operand=opr):
-            print("Compiling UnaryOp")
-            compile(opr)
-            compile(uo)
-
-        case AST.USub():
-            print("Compiling USub")
-            asm += f"\t neg rax \n"
-
-        case AST.Invert():
-            print("Compiling Invert/negate")
-            asm += f"\t not rax \n"
-
-        #------------------- if expression -----------------
-        case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):
-            print("Compiling Compare")
-            compile(if_exp)
-            asm += f"\t cmp rax, 0 \n"
-            label_else = gen_sym("ifexp_else")
-            asm += f"\t je {label_else} \n"
-            compile(then_exp)
-            label_done = gen_sym("ifexp_done")
-            asm += f"\t jmp {label_done} \n"
-            asm += f"{label_else}: \n"
-            compile(else_exp)
-            asm += f"{label_done}: \n"
+    def compile(self):
+        self.asm.emit_header()
+        self.compile_ast(self.ast)
+        self.asm.emit_tail()
+        return self.asm.code
 
 
-        case unknown:
-            raise NotImplementedError(f"language feature not supported for {type(unknown)}")
+    def compile_ast(self, node):
+        compile_ast = self.compile_ast
+        asm = self.asm
+        gen_sym = self.gen_sym
 
-asm = \
-"""
-default rel
-\t section .text
-\t global _entry
-_entry:
-"""
-compile(ast)
-asm += "\t ret \n \n section .note.GNU-stack noexec"
-print(asm)
-rt.run_asm(asm)
+        match node:
+            case AST.Module(body):
+                print("Compiling module")
+                for n in body:
+                    compile_ast(n)
+
+            case AST.Expr(value=v):
+                print("Compiling Expr")
+                compile_ast(v)
+
+            case AST.Constant(value=v):
+                print("Compiling Value")
+                asm.emit_instr(f"mov rax, {v}")
+
+            case AST.UnaryOp(op=uop, operand=opr):
+                print("Compiling UnaryOp")
+                compile_ast(opr)
+                compile_ast(uop)
+
+            case AST.USub():
+                print("Compiling USub")
+                asm.emit_instr("neg rax")
+
+            case AST.Invert():
+                print("Compiling Invert/negate")
+                asm.emit_instr("not rax")
+
+            #------------------- if expression -----------------
+            case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):
+                print("Compiling If Exp")
+                compile_ast(if_exp)
+                asm.emit_instr("cmp rax, 0")
+                label_else = gen_sym("ifexp_else")
+                asm.emit_instr(f"je {label_else}")
+                compile_ast(then_exp)
+                label_done = gen_sym("ifexp_done")
+                asm.emit_instr(f"jmp {label_done}")
+                asm.emit_label(f"{label_else}")
+                compile_ast(else_exp)
+                asm.emit_label(f"{label_done}")
+
+            case unknown:
+                raise NotImplementedError(f"language feature not supported for {type(unknown)}")
+
+if __name__ == "__main__":
+    asm_code = Compiler(program).compile()
+    rt.run_asm(asm_code, keep_asm=True)
