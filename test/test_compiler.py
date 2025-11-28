@@ -3,7 +3,6 @@ import unittest
 import src.runtime as rt
 from src.compiler import Compiler
 
-
 class TestCompiler(unittest.TestCase):
 
     def setUp(self):
@@ -20,23 +19,23 @@ class TestCompiler(unittest.TestCase):
             self.assertEqual(int(result), expected)
 
 
-    def test_number(self):
+    def test_01_number(self):
         p = "42"
         self.run_test(program=p, expected=42)
 
-    def test_unary_negate(self):
+    def test_02_unary_negate(self):
         p = "-42"
         self.run_test(program=p, expected=-42)
 
-    def test_unary_bitwise_not(self):
+    def test_03_unary_bitwise_not(self):
         p = "~42"
         self.run_test(program=p, expected=-43)
 
-    def test_unary_multiple(self):
+    def test_04_unary_multiple(self):
         p = "-~-42"
         self.run_test(program=p, expected=-41)
 
-    def test_if_expr(self):
+    def test_05_if_expr(self):
         tests = {"-10 if 5 else 20" : -10,
                  "-10 if 0 else 20" : 20,
                  "-~7 if (~-1) else -11" : -11,
@@ -46,12 +45,12 @@ class TestCompiler(unittest.TestCase):
         for program, expected in tests.items():
             self.run_test(program, expected)
 
-    def test_automated(self):
+    def test_06_automated(self):
         expr = "~(5 if (~-1) else (-2 if 1 else ~0))"
         expected = eval(expr, {"__builtins__": None}, {})
         self.run_test(program=expr, expected=expected)
 
-    def test_var_binding(self):
+    def test_07_var_binding(self):
         tests = {"x = 5; x; x = 6; x" : 6,
                  "z = 4 if (~-1) else -4" : -4,
                  "x = 0; z = 4 if x else -4" : -4,
@@ -62,12 +61,25 @@ class TestCompiler(unittest.TestCase):
         for program, expected in tests.items():
             self.run_test(program, expected)
 
-    def test_var_unassigned(self):
+    def test_08_var_unassigned(self):
         p = "x"
         with self.assertRaises(LookupError) as context:
             self.run_test(program=p)
 
         self.assertEqual(str(context.exception), f"Variable {p} is not assigned")
+
+    def test_09_binop(self):
+        tests = {"1 + 2" : 3,
+                 "1 + (2 + -5)" : -2,
+                 "(-1 + 9) + (2 + -5)" : 5,
+                 "1 - 2" : -1,
+                 "(-1 - 9) - (2 + -5)" : -7,
+                 "x = 7; y = -3; z = x - y" : 10,
+                 "x = (1 + (4 if 5 else -3)) if (4 + ~3) else (-7 - -6)" : -1,
+                 "x = (1 + (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)" : 5
+                }
+        for program, expected in tests.items():
+            self.run_test(program, expected)
 
 
 if __name__ == '__main__':

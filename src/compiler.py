@@ -4,11 +4,10 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-y: int = 5
 
-# x = -~5
-# z = ~x if x else -4
-# z
+1 + 2
+
+
 
 """
 
@@ -21,7 +20,7 @@ class Compiler:
         self.count = 0
         self.ast = None
         self.asm = x86.X86AsmUtils()
-        self.env = {"var_stk_idx" : 1}
+        self.env = {"curr_stk_idx" : 1}
 
     def gen_sym(self, name):
         self.count += 1
@@ -57,6 +56,7 @@ class Compiler:
                 print("Compiling Value")
                 asm.emit_instr(f"mov rax, {v}")
 
+            #------------------- UnaryOp expression -----------------
             case AST.UnaryOp(op=uop, operand=opr):
                 print("Compiling UnaryOp")
                 compile_ast(opr)
@@ -69,6 +69,27 @@ class Compiler:
             case AST.Invert():
                 print("Compiling Invert/negate")
                 asm.emit_instr("not rax")
+
+            #------------------- BinaryOp expression -----------------
+            case AST.BinOp(opr_left, op, opr_right):
+                compile_ast(opr_left)
+                id = self.gen_sym("temp")
+                env[id] = env["curr_stk_idx"]
+                env["curr_stk_idx"] += 1
+                stk_offset = -8 * env[id]
+                asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
+                compile_ast(opr_right)
+
+                match op:
+                    case AST.Add():
+                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
+                        asm.emit_instr("add rax, r8")
+                    case AST.Sub():
+                        asm.emit_instr("neg rax")
+                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
+                        asm.emit_instr("add rax, r8")
+                    case _:
+                        raise NotImplementedError("Binary op not implemented")
 
             #------------------- if expression -----------------
             case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):
@@ -99,36 +120,10 @@ class Compiler:
                 print("Compiling Single Assign")
                 compile_ast(value)
                 if id not in env.keys():
-                    env[id] = env["var_stk_idx"]
-                    env["var_stk_idx"] += 1
+                    env[id] = env["curr_stk_idx"]
+                    env["curr_stk_idx"] += 1
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
-
-            # case AST.Expr(AST.Name(id)):
-            #     print("Compiling Name Expr")
-            #     stk_offset = -8 * env[id]
-            #     asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
-
-
-            # case AST.Name(id=id):
-            #     print("Compiling Name")
-            #     if id not in env.keys():
-            #         env[id] = env["var_stk_idx"]
-            #         env["var_stk_idx"] += 1
-            #     else:
-            #         stk_offset = -8 * env[id]
-            #         asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
-            #     print(env)
-            #     return id
-
-            # case AST.Assign(targets=tgts, value=v):
-            #     print("Compiling Assign")
-            #     compile_ast(v)
-            #     for t in tgts:
-            #         id = compile_ast(t)
-            #         stk_offset = -8 * env[id]
-            #         asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
-
 
             case unknown:
                 raise NotImplementedError(f"language feature not supported for {type(unknown)}")
