@@ -4,7 +4,7 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-y
+y: int = 5
 
 # x = -~5
 # z = ~x if x else -4
@@ -49,16 +49,6 @@ class Compiler:
                 for n in body:
                     compile_ast(n)
 
-            # case AST.Expr(AST.Name(id, AST.Load())) | AST.Name(id, AST.Load()):
-            case AST.Name(id, AST.Load()):
-
-                    print(f"Compiling Name Expr: {id}")
-                    if id in env.keys():
-                        stk_offset = -8 * env[id]
-                        asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
-                    else:
-                        raise LookupError(f"Variable {id} is not assigned")
-
             case AST.Expr(value=v):
                 print("Compiling Expr")
                 compile_ast(v)
@@ -95,7 +85,17 @@ class Compiler:
                 asm.emit_label(f"{label_done}")
 
             #------------------- Variable binding -----------------
-            case AST.Assign([AST.Name(id, AST.Store())], value):
+            #case AST.Name(id, AST.Load()): -> also works
+            case AST.Name(id):
+                print(f"Compiling Name Expr: {id}")
+                if id in env.keys():
+                    stk_offset = -8 * env[id]
+                    asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+                else:
+                    raise LookupError(f"Variable {id} is not assigned")
+
+            #case AST.Assign([AST.Name(id, AST.Store())], value): -> also works
+            case AST.Assign([AST.Name(id)], value):
                 print("Compiling Single Assign")
                 compile_ast(value)
                 if id not in env.keys():
