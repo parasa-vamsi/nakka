@@ -4,21 +4,16 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-#---42 # result: -42
-#~42   # result: -43
-#~(-42)   # result: -41
-# -------------- If expressions ------------
-#-10 if 5 else 20  # result: -10
-#-10 if 0 else 20  # result: 20
+# x = y = 5
+# z = ~5
+# p = -x
+# p
 
-#-~7 if (~-5) else --11  # result: 8
-#-~7 if (~-1) else -11  # result: -11 (~-1 = 0)
-#-~7 if (~1) else -11  # result: 8 (~-7 = 8)
-
-#5 if (~-1) else (2 if 1 else 0) # result 2
-#5 if (~-1) else (2 if 0 else -5) # result -5
-(5 if 0 else 6) if (4 if 1 else -4) else (3 if 0 else -3)  # result: 6
-
+# x = y = -~5
+# z = ~x if y else -4
+# z
+x = 5
+x
 """
 
 class Compiler:
@@ -30,6 +25,7 @@ class Compiler:
         self.count = 0
         self.ast = None
         self.asm = x86.X86AsmUtils()
+        self.env = {"var_stk_idx" : 1}
 
     def gen_sym(self, name):
         self.count += 1
@@ -49,12 +45,19 @@ class Compiler:
         compile_ast = self.compile_ast
         asm = self.asm
         gen_sym = self.gen_sym
+        env = self.env
 
         match node:
             case AST.Module(body):
                 print("Compiling module")
                 for n in body:
                     compile_ast(n)
+
+            # This check needs to come first
+            case AST.Expr(AST.Name(id)):
+                    print("Compiling Name Expr")
+                    stk_offset = -8 * env[id]
+                    asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
 
             case AST.Expr(value=v):
                 print("Compiling Expr")
@@ -90,6 +93,41 @@ class Compiler:
                 asm.emit_label(f"{label_else}")
                 compile_ast(else_exp)
                 asm.emit_label(f"{label_done}")
+
+            #------------------- Variable binding -----------------
+            case AST.Assign([AST.Name(id)], value):
+                print("Compiling Single Assign")
+                compile_ast(value)
+                env[id] = env["var_stk_idx"]
+                env["var_stk_idx"] += 1
+                stk_offset = -8 * env[id]
+                asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
+
+            # case AST.Expr(AST.Name(id)):
+            #     print("Compiling Name Expr")
+            #     stk_offset = -8 * env[id]
+            #     asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+
+
+            # case AST.Name(id=id):
+            #     print("Compiling Name")
+            #     if id not in env.keys():
+            #         env[id] = env["var_stk_idx"]
+            #         env["var_stk_idx"] += 1
+            #     else:
+            #         stk_offset = -8 * env[id]
+            #         asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+            #     print(env)
+            #     return id
+
+            # case AST.Assign(targets=tgts, value=v):
+            #     print("Compiling Assign")
+            #     compile_ast(v)
+            #     for t in tgts:
+            #         id = compile_ast(t)
+            #         stk_offset = -8 * env[id]
+            #         asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
+
 
             case unknown:
                 raise NotImplementedError(f"language feature not supported for {type(unknown)}")
