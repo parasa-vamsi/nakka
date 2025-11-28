@@ -1,12 +1,12 @@
 import ast as AST
-import runtime as rt
-import asm as x86
+#import runtime as rt
+import src.asm as x86
 
 # Keep this formatting to avoid IndentationError
 program = \
 """
 #---42 # result: -42
-#~42   # result: -42
+#~42   # result: -43
 #~(-42)   # result: -41
 # -------------- If expressions ------------
 #-10 if 5 else 20  # result: -10
@@ -97,4 +97,5 @@ class Compiler:
 
 if __name__ == "__main__":
     asm_code = Compiler().compile(program, print_ast=True)
+    import runtime as rt
     rt.run_asm(asm_code, keep_asm=True)

@@ -4,9 +4,9 @@
 extern int64_t _entry(); // asm("_entry");
 
 int main(int argc, char** argv) {
-  printf("*********************************** \n");
+  //printf("*********************************** \n");
   int64_t result = _entry();
-  printf("%ld\n", result);
-  printf("*********************************** \n");
+  printf("%ld", result);
+  //printf("*********************************** \n");
   return 0;
 }

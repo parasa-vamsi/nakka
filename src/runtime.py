@@ -20,3 +20,4 @@ def run_asm(nasm_code, filename="program", keep_asm=False):
     if not keep_asm: os.remove(f"{filename}.asm")
     os.remove(f"{filename}.o")
     os.remove(f"{filename}")
+    return result.stdout
