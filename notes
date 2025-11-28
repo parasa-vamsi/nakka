@@ -1,0 +1,3 @@
+PYTHONPATH=. python -m unittest test/test_compiler.py
+/usr/bin/python3.10 /home/parasa/compiler/src/compiler.py
+/usr/bin/python3.10 /home/parasa/compiler/test/test_compiler.py

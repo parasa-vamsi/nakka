@@ -1,5 +1,4 @@
 import ast as AST
-#import runtime as rt
 import src.asm as x86
 
 # Keep this formatting to avoid IndentationError

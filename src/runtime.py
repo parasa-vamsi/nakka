@@ -1,5 +1,6 @@
 import subprocess
 import os
+from pathlib import Path
 
 def run_asm(nasm_code, filename="program", keep_asm=False):
 
@@ -9,7 +10,9 @@ def run_asm(nasm_code, filename="program", keep_asm=False):
 
     # Assemble the NASM code, runtime.c and link them
     subprocess.run(["nasm", "-felf64", f"{filename}.asm"], check=True)
-    subprocess.run(["gcc", "-o", f"{filename}", f"{filename}.o", "runtime.c"], check=True)
+    script_dir = Path(__file__).resolve().parent
+    c_file_path = script_dir / 'runtime.c'
+    subprocess.run(["gcc", "-o", f"{filename}", f"{filename}.o", str(c_file_path)], check=True)
 
     # Execute the code
     result = subprocess.run(["./program"], capture_output=True, text=True, check=True)
