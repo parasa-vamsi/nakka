@@ -14,9 +14,10 @@ class TestCompiler(unittest.TestCase):
         ans = rt.run_asm(asm)
         return ans
 
-    def run_test(self, program, expected):
+    def run_test(self, program, expected=None):
         result = self.compile_and_run(program)
-        self.assertEqual(int(result), expected)
+        if expected:
+            self.assertEqual(int(result), expected)
 
 
     def test_number(self):
@@ -49,6 +50,24 @@ class TestCompiler(unittest.TestCase):
         expr = "~(5 if (~-1) else (-2 if 1 else ~0))"
         expected = eval(expr, {"__builtins__": None}, {})
         self.run_test(program=expr, expected=expected)
+
+    def test_var_binding(self):
+        tests = {"x = 5; x; x = 6; x" : 6,
+                 "z = 4 if (~-1) else -4" : -4,
+                 "x = 0; z = 4 if x else -4" : -4,
+                 "x = -~5; z = ~x if x else -4; z" : -7,
+                 "x = 5; z = ~5; p = -x; p" : -5,
+                 "x = 0; y = 10; z = 5; p = y if x else z" : 5,
+                }
+        for program, expected in tests.items():
+            self.run_test(program, expected)
+
+    def test_var_unassigned(self):
+        p = "x"
+        with self.assertRaises(LookupError) as context:
+            self.run_test(program=p)
+
+        self.assertEqual(str(context.exception), f"Variable {p} is not assigned")
 
 
 if __name__ == '__main__':

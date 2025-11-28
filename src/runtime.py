@@ -2,7 +2,7 @@ import subprocess
 import os
 from pathlib import Path
 
-def run_asm(nasm_code, filename="program", keep_asm=False):
+def run_asm(nasm_code, filename="program", keep_asm=True):
 
     # Write NASM code to a file
     with open(f"{filename}.asm", "w") as f:

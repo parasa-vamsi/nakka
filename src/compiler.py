@@ -4,16 +4,12 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-# x = y = 5
-# z = ~5
-# p = -x
-# p
+y
 
-# x = y = -~5
-# z = ~x if y else -4
+# x = -~5
+# z = ~x if x else -4
 # z
-x = 5
-x
+
 """
 
 class Compiler:
@@ -31,7 +27,7 @@ class Compiler:
         self.count += 1
         return name + "_" + str(self.count)
 
-    def compile(self, program, print_ast=False):
+    def compile(self, program, print_ast=True):
         self.init()
         self.ast = AST.parse(program)
         if print_ast: print(AST.dump(self.ast, indent=4))
@@ -53,11 +49,15 @@ class Compiler:
                 for n in body:
                     compile_ast(n)
 
-            # This check needs to come first
-            case AST.Expr(AST.Name(id)):
-                    print("Compiling Name Expr")
-                    stk_offset = -8 * env[id]
-                    asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+            # case AST.Expr(AST.Name(id, AST.Load())) | AST.Name(id, AST.Load()):
+            case AST.Name(id, AST.Load()):
+
+                    print(f"Compiling Name Expr: {id}")
+                    if id in env.keys():
+                        stk_offset = -8 * env[id]
+                        asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+                    else:
+                        raise LookupError(f"Variable {id} is not assigned")
 
             case AST.Expr(value=v):
                 print("Compiling Expr")
@@ -95,11 +95,12 @@ class Compiler:
                 asm.emit_label(f"{label_done}")
 
             #------------------- Variable binding -----------------
-            case AST.Assign([AST.Name(id)], value):
+            case AST.Assign([AST.Name(id, AST.Store())], value):
                 print("Compiling Single Assign")
                 compile_ast(value)
-                env[id] = env["var_stk_idx"]
-                env["var_stk_idx"] += 1
+                if id not in env.keys():
+                    env[id] = env["var_stk_idx"]
+                    env["var_stk_idx"] += 1
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
 
