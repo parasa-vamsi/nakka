@@ -4,7 +4,7 @@ import src.runtime as rt
 from src.compiler import Compiler
 
 
-class TestCalculator(unittest.TestCase):
+class TestCompiler(unittest.TestCase):
 
     def setUp(self):
         self.compiler = Compiler()
