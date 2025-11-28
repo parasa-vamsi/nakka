@@ -76,7 +76,8 @@ class TestCompiler(unittest.TestCase):
                  "(-1 - 9) - (2 + -5)" : -7,
                  "x = 7; y = -3; z = x - y" : 10,
                  "x = (1 + (4 if 5 else -3)) if (4 + ~3) else (-7 - -6)" : -1,
-                 "x = (1 + (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)" : 5
+                 "x = (-11 * (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)" : -44,
+                 "-144 / 12": -12
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)

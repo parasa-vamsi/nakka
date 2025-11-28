@@ -5,7 +5,7 @@ import src.asm as x86
 program = \
 """
 
-1 + 2
+5 * 2
 
 
 
@@ -88,6 +88,16 @@ class Compiler:
                         asm.emit_instr("neg rax")
                         asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
                         asm.emit_instr("add rax, r8")
+                    case AST.Mult():
+                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
+                        asm.emit_instr("imul rax, r8")
+                    case AST.Div():
+                        asm.emit_instr("mov r8, rax")
+                        asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
+                        #asm.emit_instr("cqto    ;") --> cqto NASM issue
+                        asm.emit_instr("mov rdx, rax")
+                        asm.emit_instr("sar rdx, 63")
+                        asm.emit_instr("idiv r8")
                     case _:
                         raise NotImplementedError("Binary op not implemented")
 
