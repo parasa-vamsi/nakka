@@ -80,6 +80,7 @@ class TestCompiler(unittest.TestCase):
                  "x = (-11 * (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)" : -44,
                  "-144 / 12": -12,
                  "(-1 + 9) / (2 + -5)" : -2,
+                 "121 % 7" : 2,
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)
@@ -104,9 +105,39 @@ class TestCompiler(unittest.TestCase):
             expected = eval(program, {"__builtins__": None}, {})
             self.run_test(program, expected)
 
-    def test_11_boolean_logical_not(self):
+    def test_11_unary_not(self):
         p = "not False"
+        self.run_test(program=p, expected=1)
+
+        p = "not True"
         self.run_test(program=p, expected=0)
+
+        p = "not 37"
+        self.run_test(program=p, expected=0) # Python returns False
+
+        p = "not 0"
+        self.run_test(program=p, expected=1) # Python returns True
+
+
+    def test_12_binop_boolean(self):
+        v = [False, True]
+        ops = ["and", "or", "^"]
+        tests = [f"{a} {op} {b}" for a in v
+                                    for b in v
+                                        for op in ops ]
+        for program in tests:
+            expected = eval(program, {"__builtins__": None}, {})
+            self.run_test(program, expected)
+
+    def test_13_binop_bitwise(self):
+        v = [579, 3457]
+        ops = ["&", "|", "^"]
+        tests = [f"{a} {op} {b}" for a in v
+                                    for b in v
+                                        for op in ops ]
+        for program in tests:
+            expected = eval(program, {"__builtins__": None}, {})
+            self.run_test(program, expected)
 
 
 if __name__ == '__main__':

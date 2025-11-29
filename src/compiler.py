@@ -5,7 +5,7 @@ import src.asm as x86
 program = \
 """
 
-11 % 3
+not False
 
 
 """
