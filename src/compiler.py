@@ -5,9 +5,7 @@ import src.asm as x86
 program = \
 """
 
-5 and False
-not 5
-not 0
+6 ^ True
 
 
 """
@@ -120,8 +118,9 @@ class Compiler:
                         asm.emit_instr(f"set{cc} al")
                         asm.emit_instr("movzx rax, al")
 
-                    case AST.And() | AST.Or() | AST.BitXor():
-                        op_map = {AST.And : "and", AST.Or : "or", AST.BitXor : "xor"}
+                    case AST.And() | AST.Or() | AST.BitXor() | AST.BitAnd() | AST.BitOr():
+                        op_map = {AST.And : "and", AST.Or : "or", AST.BitXor : "xor",
+                                  AST.BitAnd : "and", AST.BitOr : "or"}
                         operator = op_map[type(op)]
                         asm.emit_instr(f"{operator} rax, [rsp + {stk_offset}]")
 
