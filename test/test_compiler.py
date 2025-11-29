@@ -7,7 +7,7 @@ class TestCompiler(unittest.TestCase):
 
     def setUp(self):
         self.compiler = Compiler()
-        self.use_apx = True
+        self.use_apx = False
 
     def compile_and_run(self, program):
         asm = self.compiler.compile(program, print_ast=True, use_apx=self.use_apx)
@@ -69,7 +69,7 @@ class TestCompiler(unittest.TestCase):
 
         self.assertEqual(str(context.exception), f"Variable {p} is not assigned")
 
-    def test_09_binop(self):
+    def test_09_binop_arithmetic(self):
         tests = {"1 + 2" : 3,
                  "1 + (2 + -5)" : -2,
                  "(-1 + 9) + (2 + -5)" : 5,
@@ -82,6 +82,26 @@ class TestCompiler(unittest.TestCase):
                  "(-1 + 9) / (2 + -5)" : -2,
                 }
         for program, expected in tests.items():
+            self.run_test(program, expected)
+
+    def test_10_binop_compare(self):
+        tests = {"100 > 50" : 1,
+                 "500 > 1000" : 0,
+                 "-45 >= -47" : 1,
+                 "-700 >= -700" : 1,
+                 "-700 >= -19" : 0,
+                 "45 < 73" : 1,
+                 "49 < 32" : 0,
+                 "73 <= 73" : 1,
+                 "97 <= 101" : 1,
+                 "-32 <= -33" : 0,
+                 "-4 == -4" : 1,
+                 "17 == 15" : 0,
+                 "18 != 29" : 1,
+                 "57 != 57" : 0
+                }
+        for program, expected in tests.items():
+            expected = eval(program, {"__builtins__": None}, {})
             self.run_test(program, expected)
 
 

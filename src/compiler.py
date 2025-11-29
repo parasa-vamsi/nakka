@@ -5,8 +5,7 @@ import src.asm as x86
 program = \
 """
 
-5 > 10
-100 > 20
+100 >= 20
 
 
 
@@ -82,7 +81,6 @@ class Compiler:
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
                 compile_ast(opr_right)
-                print(op)
                 match op:
                     case AST.Add():
                         asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
@@ -105,11 +103,13 @@ class Compiler:
                         asm.emit_instr("sar rdx, 63")
                         asm.emit_instr("idiv r8")
 
-                    case AST.Gt():
+                    case AST.Gt() | AST.GtE() | AST.Lt() | AST.LtE() | AST.Eq() | AST.NotEq():
                         asm.emit_instr(f"cmp [rsp + {stk_offset}], rax")
-                        asm.emit_instr("setg al")
-                        #asm.emit_instr("movzx rax, al")
-                        asm.emit_instr("mov eax, eax")
+                        cc_map = {AST.Gt : "g", AST.GtE : "ge", AST.Lt : "l",
+                                  AST.LtE : "le", AST.Eq : "e", AST.NotEq : "ne"}
+                        cc = cc_map[type(op)]
+                        asm.emit_instr(f"set{cc} al")
+                        asm.emit_instr("movzx rax, al")
 
                     case _:
                         raise NotImplementedError("Binary op not implemented")
