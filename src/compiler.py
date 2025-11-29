@@ -5,7 +5,7 @@ import src.asm as x86
 program = \
 """
 
-6 ^ True
+11 % 3
 
 
 """
@@ -102,13 +102,15 @@ class Compiler:
                     case AST.Mult():
                         asm.emit_instr(f"imul rax, [rsp + {stk_offset}]")
 
-                    case AST.Div():
+                    case AST.Div() | AST.Mod():
                         asm.emit_instr("mov r8, rax")
                         asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
                         #asm.emit_instr("cqto    ;") --> cqto NASM issue
                         asm.emit_instr("mov rdx, rax")
                         asm.emit_instr("sar rdx, 63")
                         asm.emit_instr("idiv r8")
+                        if isinstance(op, AST.Mod):
+                            asm.emit_instr("mov rax, rdx")
 
                     case AST.Gt() | AST.GtE() | AST.Lt() | AST.LtE() | AST.Eq() | AST.NotEq():
                         asm.emit_instr(f"cmp [rsp + {stk_offset}], rax")
