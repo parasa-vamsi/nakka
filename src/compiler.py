@@ -5,7 +5,8 @@ import src.asm as x86
 program = \
 """
 
-
+5 > 10
+100 > 20
 
 
 
@@ -72,7 +73,8 @@ class Compiler:
                 asm.emit_instr("not rax")
 
             #------------------- BinaryOp expression -----------------
-            case AST.BinOp(opr_left, op, opr_right):
+            case AST.BinOp(opr_left, op, opr_right) | AST.Compare(opr_left, [op], [opr_right]):
+                print("Compiling BinOp")
                 compile_ast(opr_left)
                 id = self.gen_sym("temp")
                 env[id] = env["curr_stk_idx"]
@@ -80,10 +82,11 @@ class Compiler:
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
                 compile_ast(opr_right)
-
+                print(op)
                 match op:
                     case AST.Add():
                         asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
+
                     case AST.Sub():
                         if self.use_apx:
                             asm.emit_instr(f"sub rax, [rsp + {stk_offset}], rax")
@@ -93,6 +96,7 @@ class Compiler:
 
                     case AST.Mult():
                         asm.emit_instr(f"imul rax, [rsp + {stk_offset}]")
+
                     case AST.Div():
                         asm.emit_instr("mov r8, rax")
                         asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
@@ -100,6 +104,13 @@ class Compiler:
                         asm.emit_instr("mov rdx, rax")
                         asm.emit_instr("sar rdx, 63")
                         asm.emit_instr("idiv r8")
+
+                    case AST.Gt():
+                        asm.emit_instr(f"cmp [rsp + {stk_offset}], rax")
+                        asm.emit_instr("setg al")
+                        #asm.emit_instr("movzx rax, al")
+                        asm.emit_instr("mov eax, eax")
+
                     case _:
                         raise NotImplementedError("Binary op not implemented")
 
