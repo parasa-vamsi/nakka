@@ -104,6 +104,10 @@ class TestCompiler(unittest.TestCase):
             expected = eval(program, {"__builtins__": None}, {})
             self.run_test(program, expected)
 
+    def test_11_boolean_logical_not(self):
+        p = "not False"
+        self.run_test(program=p, expected=0)
+
 
 if __name__ == '__main__':
     unittest.main()

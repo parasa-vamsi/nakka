@@ -5,8 +5,9 @@ import src.asm as x86
 program = \
 """
 
-100 >= 20
-
+5 and False
+not 5
+not 0
 
 
 """
@@ -55,6 +56,7 @@ class Compiler:
 
             case AST.Constant(value=v):
                 print("Compiling Value")
+                if type(v) == bool: v = int(v)
                 asm.emit_instr(f"mov rax, {v}")
 
             #------------------- UnaryOp expression -----------------
@@ -71,8 +73,15 @@ class Compiler:
                 print("Compiling Invert/negate")
                 asm.emit_instr("not rax")
 
+            case AST.Not():
+                print("Compiling logical not")
+                asm.emit_instr("cmp rax, 0")
+                asm.emit_instr("sete al")
+                asm.emit_instr("movzx rax, al")
+
             #------------------- BinaryOp expression -----------------
-            case AST.BinOp(opr_left, op, opr_right) | AST.Compare(opr_left, [op], [opr_right]):
+            case AST.BinOp(opr_left, op, opr_right) | AST.Compare(opr_left, [op], [opr_right]) \
+                | AST.BoolOp(op, [opr_left, opr_right]) :
                 print("Compiling BinOp")
                 compile_ast(opr_left)
                 id = self.gen_sym("temp")
@@ -110,6 +119,11 @@ class Compiler:
                         cc = cc_map[type(op)]
                         asm.emit_instr(f"set{cc} al")
                         asm.emit_instr("movzx rax, al")
+
+                    case AST.And() | AST.Or() | AST.BitXor():
+                        op_map = {AST.And : "and", AST.Or : "or", AST.BitXor : "xor"}
+                        operator = op_map[type(op)]
+                        asm.emit_instr(f"{operator} rax, [rsp + {stk_offset}]")
 
                     case _:
                         raise NotImplementedError("Binary op not implemented")
