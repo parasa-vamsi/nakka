@@ -7,10 +7,11 @@ class TestCompiler(unittest.TestCase):
 
     def setUp(self):
         self.compiler = Compiler()
+        self.use_apx = True
 
     def compile_and_run(self, program):
-        asm = self.compiler.compile(program)
-        ans = rt.run_asm(asm)
+        asm = self.compiler.compile(program, print_ast=True, use_apx=self.use_apx)
+        ans = rt.run_asm(asm, use_apx=self.use_apx)
         return ans
 
     def run_test(self, program, expected=None):
@@ -77,7 +78,8 @@ class TestCompiler(unittest.TestCase):
                  "x = 7; y = -3; z = x - y" : 10,
                  "x = (1 + (4 if 5 else -3)) if (4 + ~3) else (-7 - -6)" : -1,
                  "x = (-11 * (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)" : -44,
-                 "-144 / 12": -12
+                 "-144 / 12": -12,
+                 "(-1 + 9) / (2 + -5)" : -2,
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)

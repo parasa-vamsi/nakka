@@ -5,7 +5,7 @@ import src.asm as x86
 program = \
 """
 
-5 * 2
+
 
 
 
@@ -21,12 +21,13 @@ class Compiler:
         self.ast = None
         self.asm = x86.X86AsmUtils()
         self.env = {"curr_stk_idx" : 1}
+        self.use_apx = False
 
     def gen_sym(self, name):
         self.count += 1
         return name + "_" + str(self.count)
 
-    def compile(self, program, print_ast=True):
+    def compile(self, program, print_ast=True, use_apx=False):
         self.init()
         self.ast = AST.parse(program)
         if print_ast: print(AST.dump(self.ast, indent=4))
@@ -82,15 +83,16 @@ class Compiler:
 
                 match op:
                     case AST.Add():
-                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
-                        asm.emit_instr("add rax, r8")
+                        asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
                     case AST.Sub():
-                        asm.emit_instr("neg rax")
-                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
-                        asm.emit_instr("add rax, r8")
+                        if self.use_apx:
+                            asm.emit_instr(f"sub rax, [rsp + {stk_offset}], rax")
+                        else:
+                            asm.emit_instr("neg rax")
+                            asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
+
                     case AST.Mult():
-                        asm.emit_instr(f"mov r8, [rsp + {stk_offset}]")
-                        asm.emit_instr("imul rax, r8")
+                        asm.emit_instr(f"imul rax, [rsp + {stk_offset}]")
                     case AST.Div():
                         asm.emit_instr("mov r8, rax")
                         asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
