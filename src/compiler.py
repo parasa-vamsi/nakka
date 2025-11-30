@@ -88,14 +88,12 @@ class Compiler:
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print("Compiling BinOp")
                 compile_ast(opr_left)
-                id = self.gen_sym("temp")
-                env[id] = env["curr_stk_idx"]
+                # Store opr_left on the stack (temp var)
+                stk_offset = -8 * env["curr_stk_idx"]
                 env["curr_stk_idx"] += 1
-                stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
                 compile_ast(opr_right)
                 # Reuse the stack location created for the temp to store opr_left
-                del env[id]
                 env["curr_stk_idx"] -= 1
 
                 match op:
