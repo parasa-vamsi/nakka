@@ -5,7 +5,12 @@ import src.asm as x86
 program = \
 """
 
-not False
+x = (1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))
+z =  99
+l = 46
+p = 57
+y = (x + 2) + (4 * 7)
+y
 
 
 """
@@ -78,7 +83,8 @@ class Compiler:
                 asm.emit_instr("movzx rax, al")
 
             #------------------- BinaryOp expression -----------------
-            case AST.BinOp(opr_left, op, opr_right) | AST.Compare(opr_left, [op], [opr_right]) \
+            case AST.BinOp(opr_left, op, opr_right) \
+                | AST.Compare(opr_left, [op], [opr_right]) \
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print("Compiling BinOp")
                 compile_ast(opr_left)
@@ -88,6 +94,10 @@ class Compiler:
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
                 compile_ast(opr_right)
+                # Reuse the stack location created for the temp to store opr_left
+                del env[id]
+                env["curr_stk_idx"] -= 1
+
                 match op:
                     case AST.Add():
                         asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
@@ -128,6 +138,7 @@ class Compiler:
 
                     case _:
                         raise NotImplementedError("Binary op not implemented")
+
 
             #------------------- if expression -----------------
             case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):

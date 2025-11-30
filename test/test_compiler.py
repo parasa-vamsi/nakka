@@ -1,5 +1,6 @@
 # test_calculator.py (the unit tests)
 import unittest
+import textwrap
 import src.runtime as rt
 from src.compiler import Compiler
 
@@ -81,6 +82,7 @@ class TestCompiler(unittest.TestCase):
                  "-144 / 12": -12,
                  "(-1 + 9) / (2 + -5)" : -2,
                  "121 % 7" : 2,
+                 "(1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))" : -1
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)
@@ -138,6 +140,19 @@ class TestCompiler(unittest.TestCase):
         for program in tests:
             expected = eval(program, {"__builtins__": None}, {})
             self.run_test(program, expected)
+
+    def test_14_long_blocks(self):
+        program = """
+                x = (1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))
+                z =  99
+                l = 46
+                p = 57
+                y = (x + 2) + (4 * 7)
+                y
+                """
+        program = textwrap.dedent(program)
+        expected = exec(program, {"__builtins__": None}, {})
+        self.run_test(program, expected)
 
 
 if __name__ == '__main__':
