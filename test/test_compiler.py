@@ -82,7 +82,11 @@ class TestCompiler(unittest.TestCase):
                  "-144 / 12": -12,
                  "(-1 + 9) / (2 + -5)" : -2,
                  "121 % 7" : 2,
-                 "(1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))" : -1
+                 "(1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))" : -1,
+                 "-456 >> 3" : -57,
+                 "-137 << 4" :  -2192,
+                 "137 >> 4" : 8,
+                 "505 << 7" : 64640,
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)

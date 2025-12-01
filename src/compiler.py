@@ -5,13 +5,9 @@ import src.asm as x86
 program = \
 """
 
-x = (1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))
-z =  99
-l = 46
-p = 57
-y = (x + 2) + (4 * 7)
-y
-
+# 137 >> 4
+# -137 >> 4
+-456 << 3
 
 """
 
@@ -133,6 +129,13 @@ class Compiler:
                                   AST.BitAnd : "and", AST.BitOr : "or"}
                         operator = op_map[type(op)]
                         asm.emit_instr(f"{operator} rax, [rsp + {stk_offset}]")
+
+                    case AST.RShift() | AST.LShift():
+                        op_map = {AST.RShift : "sar", AST.LShift : "sal"}
+                        operator = op_map[type(op)]
+                        asm.emit_instr("mov rcx, rax")
+                        asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
+                        asm.emit_instr(f"{operator} rax, cl")
 
                     case _:
                         raise NotImplementedError("Binary op not implemented")
