@@ -7,7 +7,8 @@ program = \
 
 # 137 >> 4
 # -137 >> 4
--456 << 3
+# -456 << -3
+145 << -3
 
 """
 
@@ -133,6 +134,7 @@ class Compiler:
                     case AST.RShift() | AST.LShift():
                         op_map = {AST.RShift : "sar", AST.LShift : "sal"}
                         operator = op_map[type(op)]
+                        # TODO: raise error for negative shift count? C/Java doesn't and returns 0
                         asm.emit_instr("mov rcx, rax")
                         asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
                         asm.emit_instr(f"{operator} rax, cl")

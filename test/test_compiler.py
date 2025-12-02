@@ -87,6 +87,8 @@ class TestCompiler(unittest.TestCase):
                  "-137 << 4" :  -2192,
                  "137 >> 4" : 8,
                  "505 << 7" : 64640,
+                 "25 >> -4" : 0,
+                 "145 << -3" : 2305843009213693952,
                 }
         for program, expected in tests.items():
             self.run_test(program, expected)
