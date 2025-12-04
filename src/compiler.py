@@ -8,8 +8,8 @@ program = \
 # 137 >> 4
 # -137 >> 4
 # -456 << -3
-145 << -3
-
+# 145 << -3
+9 % 4
 """
 
 class Compiler:
@@ -75,9 +75,12 @@ class Compiler:
 
             case AST.Not():
                 print("Compiling logical not")
-                asm.emit_instr("cmp rax, 0")
-                asm.emit_instr("sete al")
-                asm.emit_instr("movzx rax, al")
+                asm.emit_code_block("""\
+                ; logical not
+                cmp rax, 0
+                sete al
+                movzx rax, al
+                """)
 
             #------------------- BinaryOp expression -----------------
             case AST.BinOp(opr_left, op, opr_right) \
@@ -108,22 +111,28 @@ class Compiler:
                         asm.emit_instr(f"imul rax, [rsp + {stk_offset}]")
 
                     case AST.Div() | AST.Mod():
-                        asm.emit_instr("mov r8, rax")
-                        asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
-                        #asm.emit_instr("cqto    ;") --> cqto NASM issue
-                        asm.emit_instr("mov rdx, rax")
-                        asm.emit_instr("sar rdx, 63")
-                        asm.emit_instr("idiv r8")
+                        asm.emit_code_block(f"""\
+                        ; division
+                        mov r8, rax ; divisor
+                        mov rax, [rsp + {stk_offset}]; dividend
+                        ; cqto not working (NASM issue)
+                        mov rdx, rax
+                        sar rdx, 63
+                        idiv r8
+                        """)
                         if isinstance(op, AST.Mod):
                             asm.emit_instr("mov rax, rdx")
 
                     case AST.Gt() | AST.GtE() | AST.Lt() | AST.LtE() | AST.Eq() | AST.NotEq():
-                        asm.emit_instr(f"cmp [rsp + {stk_offset}], rax")
                         cc_map = {AST.Gt : "g", AST.GtE : "ge", AST.Lt : "l",
                                   AST.LtE : "le", AST.Eq : "e", AST.NotEq : "ne"}
                         cc = cc_map[type(op)]
-                        asm.emit_instr(f"set{cc} al")
-                        asm.emit_instr("movzx rax, al")
+                        asm.emit_code_block(f"""\
+                        ; binop compare
+                        cmp [rsp + {stk_offset}], rax
+                        set{cc} al
+                        movzx rax, al
+                        """)
 
                     case AST.And() | AST.Or() | AST.BitXor() | AST.BitAnd() | AST.BitOr():
                         op_map = {AST.And : "and", AST.Or : "or", AST.BitXor : "xor",
@@ -135,10 +144,12 @@ class Compiler:
                         op_map = {AST.RShift : "sar", AST.LShift : "sal"}
                         operator = op_map[type(op)]
                         # TODO: raise error for negative shift count? C/Java doesn't and returns 0
-                        asm.emit_instr("mov rcx, rax")
-                        asm.emit_instr(f"mov rax, [rsp + {stk_offset}]")
-                        asm.emit_instr(f"{operator} rax, cl")
-
+                        asm.emit_code_block(f"""\
+                        ; binop shift
+                        mov rcx, rax
+                        mov rax, [rsp + {stk_offset}]
+                        {operator} rax, cl
+                        """)
                     case _:
                         raise NotImplementedError("Binary op not implemented")
 

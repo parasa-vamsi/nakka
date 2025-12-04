@@ -16,6 +16,9 @@ class X86AsmUtils:
     def emit_block(self, blk):
         self.code += textwrap.dedent(blk);
 
+    def emit_code_block(self, cblk):
+        self.code += textwrap.indent(textwrap.dedent(cblk), "\t")
+
     def emit_tail(self):
         self.emit_block("""\
             ; exiting
