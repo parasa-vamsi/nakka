@@ -11,6 +11,8 @@ class X86AsmUtils:
         SECTION .text
             global _entry
         _entry:
+            push rbp
+            mov rbp, rsp
         """)
 
     def emit_block(self, blk):
@@ -22,6 +24,7 @@ class X86AsmUtils:
     def emit_tail(self):
         self.emit_block("""\
             ; exiting
+            pop rbp
             ret
 
         SECTION .note.GNU-stack noexec

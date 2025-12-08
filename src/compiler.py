@@ -91,30 +91,30 @@ class Compiler:
                 # Store opr_left on the stack (temp var)
                 stk_offset = -8 * env["curr_stk_idx"]
                 env["curr_stk_idx"] += 1
-                asm.emit_instr(f"mov [rsp + {stk_offset}], rax")
+                asm.emit_instr(f"mov [rbp + {stk_offset}], rax")
                 compile_ast(opr_right)
                 # Reuse the stack location created for the temp to store opr_left
                 env["curr_stk_idx"] -= 1
 
                 match op:
                     case AST.Add():
-                        asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
+                        asm.emit_instr(f"add rax, [rbp + {stk_offset}]")
 
                     case AST.Sub():
                         if self.use_apx:
-                            asm.emit_instr(f"sub rax, [rsp + {stk_offset}], rax")
+                            asm.emit_instr(f"sub rax, [rbp + {stk_offset}], rax")
                         else:
                             asm.emit_instr("neg rax")
-                            asm.emit_instr(f"add rax, [rsp + {stk_offset}]")
+                            asm.emit_instr(f"add rax, [rbp + {stk_offset}]")
 
                     case AST.Mult():
-                        asm.emit_instr(f"imul rax, [rsp + {stk_offset}]")
+                        asm.emit_instr(f"imul rax, [rbp + {stk_offset}]")
 
                     case AST.Div() | AST.Mod():
                         asm.emit_code_block(f"""\
                         ; division
                         mov r8, rax ; divisor
-                        mov rax, [rsp + {stk_offset}]; dividend
+                        mov rax, [rbp + {stk_offset}]; dividend
                         ; cqto not working (NASM issue)
                         mov rdx, rax
                         sar rdx, 63
@@ -129,7 +129,7 @@ class Compiler:
                         cc = cc_map[type(op)]
                         asm.emit_code_block(f"""\
                         ; binop compare
-                        cmp [rsp + {stk_offset}], rax
+                        cmp [rbp + {stk_offset}], rax
                         set{cc} al
                         movzx rax, al
                         """)
@@ -138,7 +138,7 @@ class Compiler:
                         op_map = {AST.And : "and", AST.Or : "or", AST.BitXor : "xor",
                                   AST.BitAnd : "and", AST.BitOr : "or"}
                         operator = op_map[type(op)]
-                        asm.emit_instr(f"{operator} rax, [rsp + {stk_offset}]")
+                        asm.emit_instr(f"{operator} rax, [rbp + {stk_offset}]")
 
                     case AST.RShift() | AST.LShift():
                         op_map = {AST.RShift : "sar", AST.LShift : "sal"}
@@ -147,7 +147,7 @@ class Compiler:
                         asm.emit_code_block(f"""\
                         ; binop shift
                         mov rcx, rax
-                        mov rax, [rsp + {stk_offset}]
+                        mov rax, [rbp + {stk_offset}]
                         {operator} rax, cl
                         """)
                     case _:
@@ -174,7 +174,7 @@ class Compiler:
                 print(f"Compiling Name Expr: {id}")
                 if id in env.keys():
                     stk_offset = -8 * env[id]
-                    asm.emit_instr(f"mov rax, [rsp + {stk_offset }]")
+                    asm.emit_instr(f"mov rax, [rbp + {stk_offset }]")
                 else:
                     raise LookupError(f"Variable {id} is not assigned")
 
@@ -186,7 +186,7 @@ class Compiler:
                     env[id] = env["curr_stk_idx"]
                     env["curr_stk_idx"] += 1
                 stk_offset = -8 * env[id]
-                asm.emit_instr(f"mov [rsp + {stk_offset }], rax")
+                asm.emit_instr(f"mov [rbp + {stk_offset }], rax")
 
             case unknown:
                 raise NotImplementedError(f"language feature not supported for {type(unknown)}")
