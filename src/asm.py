@@ -6,7 +6,7 @@ class X86AsmUtils:
         self.code = ""
 
     def emit_header(self):
-        self.emit_block("""\
+        self.emit_block('''\
         DEFAULT REL
         SECTION .text
             global _entry
@@ -15,7 +15,7 @@ class X86AsmUtils:
             push rbp
             mov rbp, rsp
             ; function body starts here
-        """)
+        ''')
 
     def emit_block(self, blk):
         self.code += textwrap.dedent(blk);
@@ -24,13 +24,13 @@ class X86AsmUtils:
         self.code += textwrap.indent(textwrap.dedent(cblk), "\t")
 
     def emit_tail(self):
-        self.emit_block("""\
+        self.emit_block('''\
             ; exiting
             pop rbp
             ret
 
         SECTION .note.GNU-stack noexec
-        """)
+        ''')
 
     def emit_instr(self, instr):
         self.code += f"\t{instr}\n"
