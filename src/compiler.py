@@ -9,7 +9,12 @@ program = \
 # -137 >> 4
 # -456 << -3
 # 145 << -3
-9 % 4
+
+def add(a, b):
+    return a + b
+
+    x = add(2, 3)
+    x
 """
 
 class Compiler:
@@ -187,6 +192,42 @@ class Compiler:
                     env["curr_stk_idx"] += 1
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f"mov [rbp + {stk_offset }], rax")
+
+            #------------------- Function definition -----------------
+            case AST.FunctionDef(name, args, body):
+                print(f"Compiling FunctionDef: {name}")
+                self.asm.emit_label(name)
+                self.asm.emit_instr("push rbp")
+                self.asm.emit_instr("mov rbp, rsp")
+                # Map arguments to stack slots
+                for idx, arg in enumerate(args.args):
+                    self.env[arg.arg] = idx + 1
+                for stmt in body:
+                    compile_ast(stmt)
+                self.asm.emit_instr("pop rbp")
+                self.asm.emit_instr("ret")
+
+            #------------------- Function call -----------------
+            case AST.Call(func, args, keywords):
+                print(f"Compiling Call: {getattr(func, 'id', func)}")
+                # Evaluate arguments and push them in reverse order
+                for arg in reversed(args):
+                    compile_ast(arg)
+                    self.asm.emit_instr("push rax")
+                # Call function
+                if hasattr(func, 'id'):
+                    self.asm.emit_instr(f"call {func.id}")
+                else:
+                    raise NotImplementedError("Only simple function calls supported")
+                # Pop arguments off the stack
+                self.asm.emit_instr(f"add rsp, {8 * len(args)}")
+                # Return value is in rax
+
+            #------------------- Return statement -----------------
+            case AST.Return(value):
+                print("Compiling Return")
+                compile_ast(value)
+                asm.emit_instr("ret")
 
             case unknown:
                 raise NotImplementedError(f"language feature not supported for {type(unknown)}")

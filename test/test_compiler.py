@@ -159,6 +159,15 @@ class TestCompiler(unittest.TestCase):
         expected = exec(program, {"__builtins__": None}, {})
         self.run_test(program, expected)
 
+    def test_15_function_add(self):
+        p = textwrap.dedent("""
+        def add(a, b):
+            return a + b
+        x = add(2, 3)
+        x
+        """)
+        self.run_test(program=p, expected=5)
+
 
 if __name__ == '__main__':
     unittest.main()

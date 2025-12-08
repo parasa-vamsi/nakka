@@ -11,8 +11,10 @@ class X86AsmUtils:
         SECTION .text
             global _entry
         _entry:
+            ; save rbp and setup new stack frame
             push rbp
             mov rbp, rsp
+            ; function body starts here
         """)
 
     def emit_block(self, blk):
