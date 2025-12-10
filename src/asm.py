@@ -24,12 +24,10 @@ class X86AsmUtils:
         self.code += textwrap.indent(textwrap.dedent(cblk), "\t")
 
     def emit_tail(self):
-        self.emit_block('''\
-            ; exiting
-            pop rbp
-            ret
-
-        SECTION .note.GNU-stack noexec
+        self.emit_code_block('''\
+        ; exiting
+        pop rbp
+        ret
         ''')
 
     def emit_instr(self, instr):
@@ -37,6 +35,9 @@ class X86AsmUtils:
 
     def emit_label(self, label):
         self.code += f"{label}:\n"
+
+    def emit_epilogue(self):
+        self.code += 'SECTION .note.GNU-stack noexec'
 
     def show(self):
         print(self.code)

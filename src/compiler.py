@@ -10,10 +10,10 @@ program = \
 # -456 << -3
 # 145 << -3
 
-def add(a, b):
-    return a + b
+def add():
+    return 5
 
-x = add(4, 7)
+x = add()
 x
 """
 
@@ -61,6 +61,7 @@ class Compiler:
         self.ast = None
         self.asm = x86.X86AsmUtils()
         self.main_env =  Environment('main', parent=None)
+        self.func_defs = None
         self.use_apx = False
 
     def gen_sym(self, name):
@@ -72,15 +73,16 @@ class Compiler:
         self.ast = AST.parse(program)
         #if print_ast: print(AST.dump(self.ast, indent=4))
 
-        func_defs = self.extract_function_defs(self.ast)
+        self.func_defs = self.extract_function_defs(self.ast)
         # if print_ast: print(AST.dump(self.ast, indent=4))
         # print('*' * 20)
-        # for f  in func_defs:
-        #     print(AST.dump(f, indent=4))
+        for f  in self.func_defs:
+            print(AST.dump(f, indent=4))
 
-        self.asm.emit_header()
-        self.compile_ast(node=self.ast, env=self.main_env)
-        self.asm.emit_tail()
+        self.compile_main()
+        if self.func_defs:
+            self.compile_functions()
+        self.asm.emit_epilogue()
         return self.asm.code
 
     def extract_function_defs(self, node: AST.AST):
@@ -95,6 +97,15 @@ class Compiler:
             case _:
                 raise LookupError('Unknown AST format')
 
+    def compile_main(self):
+        self.asm.emit_header()
+        self.compile_ast(node=self.ast, env=self.main_env)
+        self.asm.emit_tail()
+
+    def compile_functions(self):
+        for fd_ast in self.func_defs:
+            fenv = Environment(name=fd_ast.name, parent=self.main_env)
+            self.compile_ast(node=fd_ast, env=fenv)
 
 
     def compile_ast(self, node: AST.AST, env: Environment):
@@ -246,18 +257,19 @@ class Compiler:
                 asm.emit_instr(f'mov [rbp + {stk_offset }], rax')
 
             #------------------- Function definition -----------------
-            # case AST.FunctionDef(name, args, body):
-            #     print(f'Compiling FunctionDef: {name}')
-            #     self.asm.emit_label(name)
-            #     self.asm.emit_instr('push rbp')
-            #     self.asm.emit_instr('mov rbp, rsp')
-            #     # Map arguments to stack slots
-            #     for idx, arg in enumerate(args.args):
-            #         self.env[arg.arg] = idx + 1
-            #     for stmt in body:
-            #         compile_ast(stmt, env)
-            #     self.asm.emit_instr('pop rbp')
-            #     self.asm.emit_instr('ret')
+            case AST.FunctionDef(name, args, body):
+                print(f'Compiling FunctionDef: {name}')
+                self.asm.emit_label(name)
+                self.asm.emit_instr('push rbp')
+                self.asm.emit_instr('mov rbp, rsp')
+                # Map arguments to stack slots
+                if args:
+                    for idx, arg in enumerate(args.args):
+                        self.env[arg.arg] = idx + 1
+                for stmt in body:
+                    compile_ast(stmt, env)
+                self.asm.emit_instr('pop rbp')
+                self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, args, keywords):
@@ -265,21 +277,22 @@ class Compiler:
                 # Evaluate arguments and push them in reverse order
                 for arg in reversed(args):
                     compile_ast(arg, env)
-                    self.asm.emit_instr('push rax')
+                    asm.emit_instr('push rax')
                 # Call function
                 if hasattr(func, 'id'):
-                    self.asm.emit_instr(f'call {func.id}')
+                    asm.emit_instr(f'call {func.id}')
                 else:
                     raise NotImplementedError('Only simple function calls supported')
                 # Pop arguments off the stack
-                self.asm.emit_instr(f'add rsp, {8 * len(args)}')
+                if args:
+                    asm.emit_instr(f'add rsp, {8 * len(args)}')
                 # Return value is in rax
 
             #------------------- Return statement -----------------
             case AST.Return(value):
                 print('Compiling Return')
                 compile_ast(value, env)
-                asm.emit_instr('ret')
+                # asm.emit_instr('ret')
 
             case unknown:
                 raise NotImplementedError(f'language feature not supported for {type(unknown)}')
