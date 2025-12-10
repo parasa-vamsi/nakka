@@ -10,12 +10,10 @@ program = \
 # -456 << -3
 # 145 << -3
 
-# def add(a, b):
-#     return a + b
+def add(a, b):
+    return a + b
 
-#     x = add(2, 3)
-#     x
-x = 5
+x = add(4, 7)
 x
 """
 
@@ -72,14 +70,34 @@ class Compiler:
     def compile(self, program, print_ast=True, use_apx=False):
         self.init()
         self.ast = AST.parse(program)
-        if print_ast: print(AST.dump(self.ast, indent=4))
+        #if print_ast: print(AST.dump(self.ast, indent=4))
+
+        func_defs = self.extract_function_defs(self.ast)
+        # if print_ast: print(AST.dump(self.ast, indent=4))
+        # print('*' * 20)
+        # for f  in func_defs:
+        #     print(AST.dump(f, indent=4))
+
         self.asm.emit_header()
         self.compile_ast(node=self.ast, env=self.main_env)
         self.asm.emit_tail()
         return self.asm.code
 
+    def extract_function_defs(self, node: AST.AST):
+        match node:
+            case AST.Module(body):
+                func_defs = []
+                for i, ast_node in enumerate(body):
+                    if isinstance(ast_node, AST.FunctionDef):
+                        func_defs.append(ast_node)
+                        body.pop(i)
+                return func_defs
+            case _:
+                raise LookupError('Unknown AST format')
 
-    def compile_ast(self, node:AST.AST, env:Environment):
+
+
+    def compile_ast(self, node: AST.AST, env: Environment):
         compile_ast = self.compile_ast
         asm = self.asm
         gen_sym = self.gen_sym
@@ -228,18 +246,18 @@ class Compiler:
                 asm.emit_instr(f'mov [rbp + {stk_offset }], rax')
 
             #------------------- Function definition -----------------
-            case AST.FunctionDef(name, args, body):
-                print(f'Compiling FunctionDef: {name}')
-                self.asm.emit_label(name)
-                self.asm.emit_instr('push rbp')
-                self.asm.emit_instr('mov rbp, rsp')
-                # Map arguments to stack slots
-                for idx, arg in enumerate(args.args):
-                    self.env[arg.arg] = idx + 1
-                for stmt in body:
-                    compile_ast(stmt, env)
-                self.asm.emit_instr('pop rbp')
-                self.asm.emit_instr('ret')
+            # case AST.FunctionDef(name, args, body):
+            #     print(f'Compiling FunctionDef: {name}')
+            #     self.asm.emit_label(name)
+            #     self.asm.emit_instr('push rbp')
+            #     self.asm.emit_instr('mov rbp, rsp')
+            #     # Map arguments to stack slots
+            #     for idx, arg in enumerate(args.args):
+            #         self.env[arg.arg] = idx + 1
+            #     for stmt in body:
+            #         compile_ast(stmt, env)
+            #     self.asm.emit_instr('pop rbp')
+            #     self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, args, keywords):
