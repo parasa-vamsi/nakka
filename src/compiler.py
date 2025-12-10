@@ -10,11 +10,18 @@ program = \
 # -456 << -3
 # 145 << -3
 
-def add():
-    return 5
+def f1():
+    x = 9; y = 7
+    return (y - x) * 2
 
-x = add()
+def f2():
+    # x = 81; y = 9
+    # return (x / y) * 2
+    return 0
+
+x = f1() + f1()
 x
+
 """
 
 class Environment:
@@ -71,13 +78,17 @@ class Compiler:
     def compile(self, program, print_ast=True, use_apx=False):
         self.init()
         self.ast = AST.parse(program)
-        #if print_ast: print(AST.dump(self.ast, indent=4))
+        if print_ast:
+            print('#' * 20)
+            print(AST.dump(self.ast, indent=4))
+            print('#' * 20)
 
-        self.func_defs = self.extract_function_defs(self.ast)
+        self.func_defs, self.ast = self.extract_function_defs(self.ast)
         # if print_ast: print(AST.dump(self.ast, indent=4))
-        # print('*' * 20)
+        print('*' * 20)
         for f  in self.func_defs:
             print(AST.dump(f, indent=4))
+            print('=' * 20)
 
         self.compile_main()
         if self.func_defs:
@@ -89,11 +100,13 @@ class Compiler:
         match node:
             case AST.Module(body):
                 func_defs = []
+                main_body = []
                 for i, ast_node in enumerate(body):
                     if isinstance(ast_node, AST.FunctionDef):
                         func_defs.append(ast_node)
-                        body.pop(i)
-                return func_defs
+                    else:
+                        main_body.append(ast_node)
+                return func_defs, AST.Module(body=main_body)
             case _:
                 raise LookupError('Unknown AST format')
 
