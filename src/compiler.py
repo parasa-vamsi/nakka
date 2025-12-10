@@ -17,9 +17,11 @@ def f1():
 def f2():
     # x = 81; y = 9
     # return (x / y) * 2
-    return 0
+    return -3
 
-x = f1() + f1()
+# x = 0
+# y = 0
+x = f1() - f2()
 x
 
 """
@@ -119,7 +121,6 @@ class Compiler:
         for fd_ast in self.func_defs:
             fenv = Environment(name=fd_ast.name, parent=self.main_env)
             self.compile_ast(node=fd_ast, env=fenv)
-
 
     def compile_ast(self, node: AST.AST, env: Environment):
         compile_ast = self.compile_ast
@@ -281,16 +282,20 @@ class Compiler:
                         self.env[arg.arg] = idx + 1
                 for stmt in body:
                     compile_ast(stmt, env)
+                # self.asm.emit_instr('leave')
                 self.asm.emit_instr('pop rbp')
                 self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, args, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
+                # Allocate stack space on the caller's frame to save the result of the call
+                asm.emit_instr('sub rsp, 8')
+
                 # Evaluate arguments and push them in reverse order
                 for arg in reversed(args):
                     compile_ast(arg, env)
-                    asm.emit_instr('push rax')
+
                 # Call function
                 if hasattr(func, 'id'):
                     asm.emit_instr(f'call {func.id}')

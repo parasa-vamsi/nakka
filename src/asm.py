@@ -26,7 +26,8 @@ class X86AsmUtils:
     def emit_tail(self):
         self.emit_code_block('''\
         ; exiting
-        pop rbp
+        ;pop rbp
+        leave
         ret
         ''')
 
