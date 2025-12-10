@@ -10,12 +10,48 @@ program = \
 # -456 << -3
 # 145 << -3
 
-def add(a, b):
-    return a + b
+# def add(a, b):
+#     return a + b
 
-    x = add(2, 3)
-    x
+#     x = add(2, 3)
+#     x
+x = 5
+x
 """
+
+class Environment:
+
+    def __init__(self, name, parent):
+        self.name = name
+        self.parent = parent
+        self.local_var_homes = dict()
+        self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
+
+    # For var in env
+    def __contains__(self, item):
+        return item in self.local_var_homes
+
+    # env["var name"]
+    def __getitem__(self, item):
+        if item in self.local_var_homes:
+            return self.local_var_homes[item]
+        else:
+            raise KeyError(f'{item} not found in environment')
+
+    # # env["var name"] = slot_id
+    # def __setitem__(self, item, home):
+    #     self.local_var_homes[item] = home
+
+    # # del env["var name"]
+    # def __delitem__(self, item):
+    #     del self.local_var_homes[item]
+    #     self.next_avialable_stk_id -= 1
+
+    def add(self, item):
+        self.local_var_homes[item] = self.next_avialable_stk_id
+        self.next_avialable_stk_id += 1
+        #return self.local_var_homes[item]
+
 
 class Compiler:
 
@@ -26,7 +62,7 @@ class Compiler:
         self.count = 0
         self.ast = None
         self.asm = x86.X86AsmUtils()
-        self.env = {'curr_stk_idx' : 1}
+        self.main_env =  Environment('main', parent=None)
         self.use_apx = False
 
     def gen_sym(self, name):
@@ -38,26 +74,25 @@ class Compiler:
         self.ast = AST.parse(program)
         if print_ast: print(AST.dump(self.ast, indent=4))
         self.asm.emit_header()
-        self.compile_ast(self.ast)
+        self.compile_ast(node=self.ast, env=self.main_env)
         self.asm.emit_tail()
         return self.asm.code
 
 
-    def compile_ast(self, node):
+    def compile_ast(self, node:AST.AST, env:Environment):
         compile_ast = self.compile_ast
         asm = self.asm
         gen_sym = self.gen_sym
-        env = self.env
 
         match node:
             case AST.Module(body):
                 print('Compiling module')
-                for n in body:
-                    compile_ast(n)
+                for stmt in body:
+                    compile_ast(stmt, env)
 
             case AST.Expr(value=v):
                 print('Compiling Expr')
-                compile_ast(v)
+                compile_ast(v, env)
 
             case AST.Constant(value=v):
                 print('Compiling Value')
@@ -67,8 +102,8 @@ class Compiler:
             #------------------- UnaryOp expression -----------------
             case AST.UnaryOp(op=uop, operand=opr):
                 print('Compiling UnaryOp')
-                compile_ast(opr)
-                compile_ast(uop)
+                compile_ast(opr, env)
+                compile_ast(uop, env)
 
             case AST.USub():
                 print('Compiling USub')
@@ -92,14 +127,14 @@ class Compiler:
                 | AST.Compare(opr_left, [op], [opr_right]) \
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print('Compiling BinOp')
-                compile_ast(opr_left)
+                compile_ast(opr_left, env)
                 # Store opr_left on the stack (temp var)
-                stk_offset = -8 * env['curr_stk_idx']
-                env['curr_stk_idx'] += 1
+                stk_offset = -8 * env.next_avialable_stk_id
+                env.next_avialable_stk_id += 1
                 asm.emit_instr(f'mov [rbp + {stk_offset}], rax')
-                compile_ast(opr_right)
+                compile_ast(opr_right, env)
                 # Reuse the stack location created for the temp to store opr_left
-                env['curr_stk_idx'] -= 1
+                env.next_avialable_stk_id -= 1
 
                 match op:
                     case AST.Add():
@@ -162,22 +197,22 @@ class Compiler:
             #------------------- if expression -----------------
             case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):
                 print('Compiling If Exp')
-                compile_ast(if_exp)
+                compile_ast(if_exp, env)
                 asm.emit_instr('cmp rax, 0')
                 label_else = gen_sym('ifexp_else')
                 asm.emit_instr(f'je {label_else}')
-                compile_ast(then_exp)
+                compile_ast(then_exp, env)
                 label_done = gen_sym('ifexp_done')
                 asm.emit_instr(f'jmp {label_done}')
                 asm.emit_label(f'{label_else}')
-                compile_ast(else_exp)
+                compile_ast(else_exp, env)
                 asm.emit_label(f'{label_done}')
 
             #------------------- Variable binding -----------------
             #case AST.Name(id, AST.Load()): -> also works
             case AST.Name(id):
                 print(f'Compiling Name Expr: {id}')
-                if id in env.keys():
+                if id in env:
                     stk_offset = -8 * env[id]
                     asm.emit_instr(f'mov rax, [rbp + {stk_offset }]')
                 else:
@@ -186,10 +221,9 @@ class Compiler:
             #case AST.Assign([AST.Name(id, AST.Store())], value): -> also works
             case AST.Assign([AST.Name(id)], value):
                 print('Compiling Single Assign')
-                compile_ast(value)
-                if id not in env.keys():
-                    env[id] = env['curr_stk_idx']
-                    env['curr_stk_idx'] += 1
+                compile_ast(value, env)
+                if id not in env:
+                    env.add(id)
                 stk_offset = -8 * env[id]
                 asm.emit_instr(f'mov [rbp + {stk_offset }], rax')
 
@@ -203,7 +237,7 @@ class Compiler:
                 for idx, arg in enumerate(args.args):
                     self.env[arg.arg] = idx + 1
                 for stmt in body:
-                    compile_ast(stmt)
+                    compile_ast(stmt, env)
                 self.asm.emit_instr('pop rbp')
                 self.asm.emit_instr('ret')
 
@@ -212,7 +246,7 @@ class Compiler:
                 print(f'Compiling Call: {getattr(func, "id", func)}')
                 # Evaluate arguments and push them in reverse order
                 for arg in reversed(args):
-                    compile_ast(arg)
+                    compile_ast(arg, env)
                     self.asm.emit_instr('push rax')
                 # Call function
                 if hasattr(func, 'id'):
@@ -226,7 +260,7 @@ class Compiler:
             #------------------- Return statement -----------------
             case AST.Return(value):
                 print('Compiling Return')
-                compile_ast(value)
+                compile_ast(value, env)
                 asm.emit_instr('ret')
 
             case unknown:
