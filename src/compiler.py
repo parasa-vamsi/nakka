@@ -10,19 +10,20 @@ program = \
 # -456 << -3
 # 145 << -3
 
-def f1():
-    x = 9; y = 7
-    return (y - x) * 2
+# def f1():
+#     x = 9; y = 7
+#     return (y - x) * 2
 
-def f2():
-    # x = 81; y = 9
-    # return (x / y) * 2
-    return -3
+# def f2():
+#     # x = 81; y = 9
+#     # return (x / y) * 2
+#     return -3
 
 # x = 0
 # y = 0
-x = f1() - f2()
-x
+# x = f1() - f2()
+# x
+-144 / -12
 
 """
 
@@ -32,9 +33,10 @@ class Environment:
         self.name = name
         self.parent = parent
         self.local_var_homes = dict()
+        self.use_registers = False
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
-        self.available_registers = {'rbx', 'rcx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
-        self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx'}
+        self.available_registers = {'rbx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
+        self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx', 'rcx'}
         self.occupied_registers = set()
 
     # For var in env
@@ -45,7 +47,7 @@ class Environment:
     def __getitem__(self, item):
         if item in self.local_var_homes:
             var_home = self.local_var_homes[item]
-            if isinstance(var_home, str): # register
+            if self.use_registers and isinstance(var_home, str): # register
                 return var_home
             else:
                 stk_offset = -8 * var_home
@@ -60,7 +62,7 @@ class Environment:
     # del env["var name"]
     def __delitem__(self, item):
         var_home = self.local_var_homes[item]
-        if var_home in self.occupied_registers:
+        if self.use_registers and var_home in self.occupied_registers:
             self.occupied_registers.remove(var_home)
             self.available_registers.add(var_home)
         else:
@@ -68,13 +70,16 @@ class Environment:
         del self.local_var_homes[item]
 
     def add(self, item):
-        if self.available_registers:
+        if self.use_registers and self.available_registers:
             self.local_var_homes[item] = self.available_registers.pop()
             self.occupied_registers.add(self.local_var_homes[item])
         else:
             self.local_var_homes[item] = self.next_avialable_stk_id
             self.next_avialable_stk_id += 1
         return self.__getitem__(item)
+    
+    def is_register(self, item_home):
+        return True if item_home[0] == 'r' else False
 
 
 class Compiler:
@@ -187,38 +192,35 @@ class Compiler:
                 | AST.Compare(opr_left, [op], [opr_right]) \
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print('Compiling BinOp')
-                compile_ast(opr_left, env)
-                # Store opr_left as a temp var
+                compile_ast(opr_right, env)
+                # Store opr_right as a temp var
                 temp_var = gen_sym('.temp')
-                opr_left_home = env.add(temp_var)
-                asm.emit_instr(f'mov {opr_left_home}, rax')
-                compile_ast(opr_right, env) # opr_right will be in rax
-                # Reuse the temp var home created for the temp to store opr_left
+                opr_right_home = env.add(temp_var)
+                asm.emit_instr(f'mov {opr_right_home}, rax')
+                compile_ast(opr_left, env) # opr_left will be in rax
+                # Reuse the temp var home created for the temp to store opr_right
                 del env[temp_var]
 
                 match op:
                     case AST.Add():
-                        asm.emit_instr(f'add rax, {opr_left_home}')
+                        asm.emit_instr(f'add rax, {opr_right_home}')
 
                     case AST.Sub():
                         if self.use_apx:
-                            asm.emit_instr(f'sub rax, {opr_left_home}, rax')
+                            asm.emit_instr(f'sub rax, rax, {opr_right_home}')
                         else:
-                            asm.emit_instr('neg rax')
-                            asm.emit_instr(f'add rax, {opr_left_home}')
+                            asm.emit_instr(f'sub rax, {opr_right_home}')
 
                     case AST.Mult():
-                        asm.emit_instr(f'imul rax, {opr_left_home}')
+                        asm.emit_instr(f'imul rax, {opr_right_home}')
 
                     case AST.Div() | AST.Mod():
+                        SIZE = '' if env.is_register(opr_right_home) else 'QWORD'
                         asm.emit_code_block(f'''\
-                        ; division
-                        mov r8, rax ; divisor
-                        mov rax, {opr_left_home}; dividend
-                        ; cqto not working (NASM issue)
-                        mov rdx, rax
+                        ; division (cqto has issues)
+                        mov rdx, rax ; dividend
                         sar rdx, 63
-                        idiv r8
+                        idiv {SIZE} {opr_right_home}
                         ''')
                         if isinstance(op, AST.Mod):
                             asm.emit_instr("mov rax, rdx")
@@ -229,7 +231,7 @@ class Compiler:
                         cc = cc_map[type(op)]
                         asm.emit_code_block(f'''\
                         ; binop compare
-                        cmp {opr_left_home}, rax
+                        cmp rax, {opr_right_home}
                         set{cc} al
                         movzx rax, al
                         ''')
@@ -238,7 +240,7 @@ class Compiler:
                         op_map = {AST.And : 'and', AST.Or : 'or', AST.BitXor : 'xor',
                                   AST.BitAnd : 'and', AST.BitOr : 'or'}
                         operator = op_map[type(op)]
-                        asm.emit_instr(f'{operator} rax, {opr_left_home}')
+                        asm.emit_instr(f'{operator} rax, {opr_right_home}')
 
                     case AST.RShift() | AST.LShift():
                         op_map = {AST.RShift : 'sar', AST.LShift : 'sal'}
@@ -246,8 +248,7 @@ class Compiler:
                         # TODO: raise error for negative shift count? C/Java doesn't and returns 0
                         asm.emit_code_block(f'''\
                         ; binop shift
-                        mov rcx, rax
-                        mov rax, {opr_left_home}
+                        mov rcx, {opr_right_home}
                         {operator} rax, cl
                         ''')
                     case _:

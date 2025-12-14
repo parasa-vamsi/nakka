@@ -9,7 +9,7 @@ def run_asm(nasm_code, filename='program', use_apx=False, keep_asm=True):
         f.write(nasm_code)
 
     # Assemble the NASM code, runtime.c and link them
-    subprocess.run(['/usr/local/bin/nasm', '-felf64', f'{filename}.asm'], check=True)
+    subprocess.run(['/usr/local/bin/nasm', '-felf64', '-g', '-w-orphan-labels', f'{filename}.asm'], check=True)
     script_dir = Path(__file__).resolve().parent
     c_file_path = script_dir / 'runtime.c'
     subprocess.run(['gcc', '-o', f'{filename}', f'{filename}.o', str(c_file_path)], check=True)
