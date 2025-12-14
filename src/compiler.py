@@ -4,26 +4,23 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
+def f1():
+    x = 9; y = 7
+    return (y - x) * 2
 
-# 137 >> 4
-# -137 >> 4
-# -456 << -3
-# 145 << -3
+def f2():
+    x = 81; y = 9
+    return (x / y) * 2
+    return -3
 
-# def f1():
-#     x = 9; y = 7
-#     return (y - x) * 2
+a = 1
+b = 2
+c = 3
+d = 4
+e = 5
 
-# def f2():
-#     # x = 81; y = 9
-#     # return (x / y) * 2
-#     return -3
-
-# x = 0
-# y = 0
-# x = f1() - f2()
-# x
--144 / -12
+z = f1() - f2() + e
+z
 
 """
 
@@ -33,11 +30,14 @@ class Environment:
         self.name = name
         self.parent = parent
         self.local_var_homes = dict()
-        self.use_registers = False
+        self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
         self.available_registers = {'rbx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
         self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx', 'rcx'}
         self.occupied_registers = set()
+        self.caller_save_registers = ['rax', 'rcx', 'rdx' , 'rsi' , 'rdi', 'r8', 'r9', 'r10', 'r11']
+        self.callee_save_registers = ['rbx', 'rbp', 'rsp', 'r12', 'r13', 'r14', 'r15']
+
 
     # For var in env
     def __contains__(self, item):
@@ -294,21 +294,35 @@ class Compiler:
                 self.asm.emit_label(name)
                 self.asm.emit_instr('push rbp')
                 self.asm.emit_instr('mov rbp, rsp')
+                self.asm.emit_instr('sub rsp, 8000  ; 100 local variables') # allocate stack space for local variables
+
+                # push callee save registers
+                for reg in env.callee_save_registers:
+                    if reg != 'rbp' and reg != 'rsp':
+                        self.asm.emit_instr(f'push {reg}')
                 # Map arguments to stack slots
                 if args:
                     for idx, arg in enumerate(args.args):
                         self.env[arg.arg] = idx + 1
                 for stmt in body:
                     compile_ast(stmt, env)
-                # self.asm.emit_instr('leave')
-                self.asm.emit_instr('pop rbp')
+                
+                # pop callee save registers
+                for reg in reversed(env.callee_save_registers):
+                    if reg != 'rbp' and reg != 'rsp':
+                        self.asm.emit_instr(f'pop {reg}')
+                
+                self.asm.emit_instr('leave')
+                # self.asm.emit_instr('pop rbp')
                 self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, args, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
-                # Allocate stack space on the caller's frame to save the result of the call
-                asm.emit_instr('sub rsp, 8')
+                # Push caller save registers on to the stack
+                for reg in env.caller_save_registers:
+                    if reg != 'rax': # result in rax
+                        asm.emit_instr(f'push {reg}')
 
                 # Evaluate arguments and push them in reverse order
                 for arg in reversed(args):
@@ -316,6 +330,7 @@ class Compiler:
 
                 # Call function
                 if hasattr(func, 'id'):
+                    asm.emit_comment(f'registers in use before call: {env.occupied_registers}')
                     asm.emit_instr(f'call {func.id}')
                 else:
                     raise NotImplementedError('Only simple function calls supported')
@@ -323,6 +338,10 @@ class Compiler:
                 if args:
                     asm.emit_instr(f'add rsp, {8 * len(args)}')
                 # Return value is in rax
+                # Pop caller save registers from the stack
+                for reg in reversed(env.caller_save_registers): 
+                    if reg != 'rax': # result in rax
+                        asm.emit_instr(f'pop {reg}')
 
             #------------------- Return statement -----------------
             case AST.Return(value):

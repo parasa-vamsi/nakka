@@ -14,6 +14,7 @@ class X86AsmUtils:
             ; save rbp and setup new stack frame
             push rbp
             mov rbp, rsp
+            sub rsp, 8000  ; allocate stack space for 100 local variables
             ; function body starts here
         ''')
 
@@ -33,6 +34,9 @@ class X86AsmUtils:
 
     def emit_instr(self, instr):
         self.code += f"\t{instr}\n"
+
+    def emit_comment(self, comment):
+        self.code += f"\t; {comment}\n"
 
     def emit_label(self, label):
         self.code += f"{label}:\n"
