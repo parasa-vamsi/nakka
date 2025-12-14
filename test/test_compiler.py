@@ -160,15 +160,48 @@ class TestCompiler(unittest.TestCase):
         expected = exec(program, {'__builtins__': None}, {})
         self.run_test(program, expected)
 
-    @skip
-    def test_15_function_add(self):
-        p = textwrap.dedent('''
-        def add(a, b):
-            return a + b
-        x = add(2, 3)
-        x
-        ''')
-        self.run_test(program=p, expected=5)
+    def test_15_function_zero_args(self):
+        program = textwrap.dedent('''
+            def f1():
+                x = 9; y = 7
+                return (x - y) * 2 # 4
+
+            def f2():
+                x = 81; y = 9
+                return (x / y) * 2 #18
+
+            a = 1
+            b = 2
+            c = 3
+            d = 4
+            e = 5
+
+            z = f1() - f2() + e  # 4 - 18 + 5 = -9
+            z
+            ''')
+        expected = exec(program, {'__builtins__': None}, {})
+        self.run_test(program, expected)
+
+    def test_16_function_register_only_args(self):
+        program = textwrap.dedent('''
+            def f1(arg1, arg2, arg3, arg4, arg5, arg6):
+                return (arg1 - arg2) * ((arg3 % arg4) - (arg5 / arg6))
+
+            # def f2():
+            #     x = 81; y = 9
+            #     return (x / y) * 2 #18
+
+            a = 1
+            b = 2
+            c = 5
+            d = 4
+            e = 15
+
+            z = f1(10, e >> 2, 3 + c, 2, -9 * b, 3) 
+            z
+            ''')
+        expected = exec(program, {'__builtins__': None}, {})
+        self.run_test(program, expected)
 
 
 if __name__ == '__main__':

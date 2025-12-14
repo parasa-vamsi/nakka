@@ -3,3 +3,4 @@ PYTHONPATH=. python -m unittest test/test_compiler.py
 /usr/bin/python3.10 /home/parasa/compiler/test/test_compiler.py
 
  x/gd $rbp - 8
+cd /home/parasa/nakka && PYTHONPATH=/home/parasa/nakka python3 -m unittest test.test_compiler.TestCompiler.test_16_function_register_only_args -v

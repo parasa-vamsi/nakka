@@ -4,14 +4,15 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-def f1():
-    x = 9; y = 7
-    return (y - x) * 2
+def f1(arg0):
+    # x = 9; y = 7
+    y = 7
+    return (y - arg0) * 2 # -4
 
 def f2():
     x = 81; y = 9
-    return (x / y) * 2
-    return -3
+    return (x / y) * 2 #18
+    # return -3
 
 a = 1
 b = 2
@@ -19,7 +20,8 @@ c = 3
 d = 4
 e = 5
 
-z = f1() - f2() + e
+# z = f1(d) - f2() + e
+z  = f1(d) 
 z
 
 """
@@ -37,7 +39,7 @@ class Environment:
         self.occupied_registers = set()
         self.caller_save_registers = ['rax', 'rcx', 'rdx' , 'rsi' , 'rdi', 'r8', 'r9', 'r10', 'r11']
         self.callee_save_registers = ['rbx', 'rbp', 'rsp', 'r12', 'r13', 'r14', 'r15']
-
+        self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9']
 
     # For var in env
     def __contains__(self, item):
@@ -55,9 +57,18 @@ class Environment:
         else:
             raise KeyError(f'{item} not found in environment')
 
-    # # env["var name"] = slot_id
-    # def __setitem__(self, item, home):
-    #     self.local_var_homes[item] = home
+    # env["var name"] = slot_id
+    def __setitem__(self, item, home):
+        if self.is_register(home):
+            if self.use_registers:
+                self.local_var_homes[item] = home
+                self.occupied_registers.add(home)
+                if home in self.available_registers:
+                    self.available_registers.remove(home)
+            else:
+                raise RuntimeError('Register allocation disabled')
+        else:
+            raise RuntimeError('Only register homes can be set directly')
 
     # del env["var name"]
     def __delitem__(self, item):
@@ -77,7 +88,7 @@ class Environment:
             self.local_var_homes[item] = self.next_avialable_stk_id
             self.next_avialable_stk_id += 1
         return self.__getitem__(item)
-    
+
     def is_register(self, item_home):
         return True if item_home[0] == 'r' else False
 
@@ -289,7 +300,7 @@ class Compiler:
                 asm.emit_instr(f'mov {var_home}, rax')
 
             #------------------- Function definition -----------------
-            case AST.FunctionDef(name, args, body):
+            case AST.FunctionDef(name, arguments, body):
                 print(f'Compiling FunctionDef: {name}')
                 self.asm.emit_label(name)
                 self.asm.emit_instr('push rbp')
@@ -298,47 +309,55 @@ class Compiler:
 
                 # push callee save registers
                 for reg in env.callee_save_registers:
-                    if reg != 'rbp' and reg != 'rsp':
+                    if reg != 'rbp' and reg != 'rsp': # leave instr takes care of rbp and rsp
                         self.asm.emit_instr(f'push {reg}')
-                # Map arguments to stack slots
-                if args:
-                    for idx, arg in enumerate(args.args):
-                        self.env[arg.arg] = idx + 1
+
+                # Map arguments to environnment slots
+                for idx, arg in enumerate(arguments.args):
+                    if idx < len(env.register_arguments):
+                        env[arg.arg] = env.register_arguments[idx]
+
+                print(env.local_var_homes)
+
+                # Compile function body
                 for stmt in body:
                     compile_ast(stmt, env)
-                
+
                 # pop callee save registers
                 for reg in reversed(env.callee_save_registers):
                     if reg != 'rbp' and reg != 'rsp':
                         self.asm.emit_instr(f'pop {reg}')
-                
+
                 self.asm.emit_instr('leave')
                 # self.asm.emit_instr('pop rbp')
                 self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
-            case AST.Call(func, args, keywords):
+            case AST.Call(func, arguments, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
-                # Push caller save registers on to the stack
+                # Push caller save registers on to the stack (excluding rax)
                 for reg in env.caller_save_registers:
                     if reg != 'rax': # result in rax
                         asm.emit_instr(f'push {reg}')
 
                 # Evaluate arguments and push them in reverse order
-                for arg in reversed(args):
-                    compile_ast(arg, env)
+                for idx in range(len(arguments)-1, -1, -1):
+                    compile_ast(arguments[idx], env) # argument value in rax
+                    arg_dst = env.register_arguments[idx] if idx < len(env.register_arguments) else f'[rsp + {8 * (len(arguments) - idx - 1)}]'
+                    asm.emit_instr(f'mov {arg_dst}, rax')
 
                 # Call function
                 if hasattr(func, 'id'):
                     asm.emit_comment(f'registers in use before call: {env.occupied_registers}')
                     asm.emit_instr(f'call {func.id}')
+                    # Return value is in rax (rax is always used as scratch register)
                 else:
                     raise NotImplementedError('Only simple function calls supported')
                 # Pop arguments off the stack
-                if args:
-                    asm.emit_instr(f'add rsp, {8 * len(args)}')
-                # Return value is in rax
-                # Pop caller save registers from the stack
+                if len(arguments) > len(env.register_arguments):
+                    asm.emit_instr(f'add rsp, {8 * len(arguments)}')
+
+                # Pop caller save registers from the stack (rax not included)
                 for reg in reversed(env.caller_save_registers): 
                     if reg != 'rax': # result in rax
                         asm.emit_instr(f'pop {reg}')
