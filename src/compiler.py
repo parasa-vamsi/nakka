@@ -33,6 +33,9 @@ class Environment:
         self.parent = parent
         self.local_var_homes = dict()
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
+        self.available_registers = {'rbx', 'rcx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
+        self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx'}
+        self.occupied_registers = set()
 
     # For var in env
     def __contains__(self, item):
@@ -41,7 +44,12 @@ class Environment:
     # env["var name"]
     def __getitem__(self, item):
         if item in self.local_var_homes:
-            return self.local_var_homes[item]
+            var_home = self.local_var_homes[item]
+            if isinstance(var_home, str): # register
+                return var_home
+            else:
+                stk_offset = -8 * var_home
+                return f'[rbp + {stk_offset}]'
         else:
             raise KeyError(f'{item} not found in environment')
 
@@ -49,15 +57,24 @@ class Environment:
     # def __setitem__(self, item, home):
     #     self.local_var_homes[item] = home
 
-    # # del env["var name"]
-    # def __delitem__(self, item):
-    #     del self.local_var_homes[item]
-    #     self.next_avialable_stk_id -= 1
+    # del env["var name"]
+    def __delitem__(self, item):
+        var_home = self.local_var_homes[item]
+        if var_home in self.occupied_registers:
+            self.occupied_registers.remove(var_home)
+            self.available_registers.add(var_home)
+        else:
+            self.next_avialable_stk_id -= 1
+        del self.local_var_homes[item]
 
     def add(self, item):
-        self.local_var_homes[item] = self.next_avialable_stk_id
-        self.next_avialable_stk_id += 1
-        #return self.local_var_homes[item]
+        if self.available_registers:
+            self.local_var_homes[item] = self.available_registers.pop()
+            self.occupied_registers.add(self.local_var_homes[item])
+        else:
+            self.local_var_homes[item] = self.next_avialable_stk_id
+            self.next_avialable_stk_id += 1
+        return self.__getitem__(item)
 
 
 class Compiler:
@@ -171,33 +188,33 @@ class Compiler:
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print('Compiling BinOp')
                 compile_ast(opr_left, env)
-                # Store opr_left on the stack (temp var)
-                stk_offset = -8 * env.next_avialable_stk_id
-                env.next_avialable_stk_id += 1
-                asm.emit_instr(f'mov [rbp + {stk_offset}], rax')
-                compile_ast(opr_right, env)
-                # Reuse the stack location created for the temp to store opr_left
-                env.next_avialable_stk_id -= 1
+                # Store opr_left as a temp var
+                temp_var = gen_sym('.temp')
+                opr_left_home = env.add(temp_var)
+                asm.emit_instr(f'mov {opr_left_home}, rax')
+                compile_ast(opr_right, env) # opr_right will be in rax
+                # Reuse the temp var home created for the temp to store opr_left
+                del env[temp_var]
 
                 match op:
                     case AST.Add():
-                        asm.emit_instr(f'add rax, [rbp + {stk_offset}]')
+                        asm.emit_instr(f'add rax, {opr_left_home}')
 
                     case AST.Sub():
                         if self.use_apx:
-                            asm.emit_instr(f'sub rax, [rbp + {stk_offset}], rax')
+                            asm.emit_instr(f'sub rax, {opr_left_home}, rax')
                         else:
                             asm.emit_instr('neg rax')
-                            asm.emit_instr(f'add rax, [rbp + {stk_offset}]')
+                            asm.emit_instr(f'add rax, {opr_left_home}')
 
                     case AST.Mult():
-                        asm.emit_instr(f'imul rax, [rbp + {stk_offset}]')
+                        asm.emit_instr(f'imul rax, {opr_left_home}')
 
                     case AST.Div() | AST.Mod():
                         asm.emit_code_block(f'''\
                         ; division
                         mov r8, rax ; divisor
-                        mov rax, [rbp + {stk_offset}]; dividend
+                        mov rax, {opr_left_home}; dividend
                         ; cqto not working (NASM issue)
                         mov rdx, rax
                         sar rdx, 63
@@ -212,7 +229,7 @@ class Compiler:
                         cc = cc_map[type(op)]
                         asm.emit_code_block(f'''\
                         ; binop compare
-                        cmp [rbp + {stk_offset}], rax
+                        cmp {opr_left_home}, rax
                         set{cc} al
                         movzx rax, al
                         ''')
@@ -221,7 +238,7 @@ class Compiler:
                         op_map = {AST.And : 'and', AST.Or : 'or', AST.BitXor : 'xor',
                                   AST.BitAnd : 'and', AST.BitOr : 'or'}
                         operator = op_map[type(op)]
-                        asm.emit_instr(f'{operator} rax, [rbp + {stk_offset}]')
+                        asm.emit_instr(f'{operator} rax, {opr_left_home}')
 
                     case AST.RShift() | AST.LShift():
                         op_map = {AST.RShift : 'sar', AST.LShift : 'sal'}
@@ -230,7 +247,7 @@ class Compiler:
                         asm.emit_code_block(f'''\
                         ; binop shift
                         mov rcx, rax
-                        mov rax, [rbp + {stk_offset}]
+                        mov rax, {opr_left_home}
                         {operator} rax, cl
                         ''')
                     case _:
@@ -256,8 +273,8 @@ class Compiler:
             case AST.Name(id):
                 print(f'Compiling Name Expr: {id}')
                 if id in env:
-                    stk_offset = -8 * env[id]
-                    asm.emit_instr(f'mov rax, [rbp + {stk_offset }]')
+                    var_home = env[id]
+                    asm.emit_instr(f'mov rax, {var_home}')
                 else:
                     raise LookupError(f'Variable {id} is not assigned')
 
@@ -267,8 +284,8 @@ class Compiler:
                 compile_ast(value, env)
                 if id not in env:
                     env.add(id)
-                stk_offset = -8 * env[id]
-                asm.emit_instr(f'mov [rbp + {stk_offset }], rax')
+                var_home = env[id]
+                asm.emit_instr(f'mov {var_home}, rax')
 
             #------------------- Function definition -----------------
             case AST.FunctionDef(name, args, body):
