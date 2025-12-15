@@ -167,6 +167,7 @@ class Compiler:
             case AST.Constant(value=v):
                 print('Compiling Value')
                 if type(v) == bool: v = int(v)
+                asm.emit_comment(f'load constant {v}')
                 asm.emit_instr(f'mov rax, {v}')
 
             #------------------- UnaryOp expression -----------------
@@ -177,16 +178,18 @@ class Compiler:
 
             case AST.USub():
                 print('Compiling USub')
+                asm.emit_comment('unary negate')
                 asm.emit_instr('neg rax')
 
             case AST.Invert():
                 print('Compiling Invert/negate')
+                asm.emit_comment('bitwise invert')
                 asm.emit_instr('not rax')
 
             case AST.Not():
                 print('Compiling logical not')
+                asm.emit_comment('logical not')
                 asm.emit_code_block('''\
-                ; logical not
                 cmp rax, 0
                 sete al
                 movzx rax, al
@@ -197,6 +200,7 @@ class Compiler:
                 | AST.Compare(opr_left, [op], [opr_right]) \
                 | AST.BoolOp(op, [opr_left, opr_right]) :
                 print('Compiling BinOp')
+                asm.emit_comment(f'binary op: {type(op).__name__}')
                 compile_ast(opr_right, env)
                 # Store opr_right as a temp var
                 temp_var = gen_sym('.temp')
@@ -263,6 +267,7 @@ class Compiler:
             #------------------- if expression -----------------
             case AST.IfExp(test=if_exp, body=then_exp, orelse=else_exp):
                 print('Compiling If Exp')
+                asm.emit_comment('if-expression')
                 compile_ast(if_exp, env)
                 asm.emit_instr('cmp rax, 0')
                 label_else = gen_sym('ifexp_else')
@@ -278,6 +283,7 @@ class Compiler:
             #case AST.Name(id, AST.Load()): -> also works
             case AST.Name(id):
                 print(f'Compiling Name Expr: {id}')
+                asm.emit_comment(f'load variable {id}')
                 if id in env:
                     var_home = env[id]
                     asm.emit_instr(f'mov rax, {var_home}')
@@ -287,6 +293,7 @@ class Compiler:
             #case AST.Assign([AST.Name(id, AST.Store())], value): -> also works
             case AST.Assign([AST.Name(id)], value):
                 print('Compiling Single Assign')
+                asm.emit_comment(f'assign to {id}')
                 compile_ast(value, env)
                 if id not in env:
                     env.add(id)
@@ -299,6 +306,7 @@ class Compiler:
             #------------------- Function definition -----------------
             case AST.FunctionDef(name, arguments, body):
                 print(f'Compiling FunctionDef: {name}')
+                asm.emit_comment(f'function: {name}')
                 self.asm.emit_label(name)
                 self.asm.emit_instr('push rbp')
                 self.asm.emit_instr('mov rbp, rsp')
@@ -334,6 +342,7 @@ class Compiler:
             #------------------- Function call -----------------
             case AST.Call(func, arguments, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
+                asm.emit_comment(f'call {getattr(func, "id", func)}')
 
                 # Save only the occupied caller-save registers before we clobber them
                 # These hold local variable values that must be preserved across the call
@@ -380,6 +389,7 @@ class Compiler:
             #------------------- Return statement -----------------
             case AST.Return(value):
                 print('Compiling Return')
+                asm.emit_comment('return')
                 compile_ast(value, env)
                 # asm.emit_instr('ret')
 
