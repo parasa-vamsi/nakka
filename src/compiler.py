@@ -32,45 +32,52 @@ class Environment:
         self.name = name
         self.parent = parent
         self.local_var_homes = dict()
+        self.func_arg_homes = dict()
         self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
         self.available_registers = {'rbx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
         self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx', 'rcx'}
         self.occupied_registers = set()
-        self.caller_save_registers = ['rax', 'rcx', 'rdx' , 'rsi' , 'rdi', 'r8', 'r9', 'r10', 'r11']
+        self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
+        self.caller_save_registers = ['rax'] + self.register_arguments + ['r10', 'r11']
         self.callee_save_registers = ['rbx', 'rbp', 'rsp', 'r12', 'r13', 'r14', 'r15']
-        self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9']
-
+    
+    @property
+    def num_register_arguments(self):
+        return len(self.register_arguments)
+    
     # For var in env
     def __contains__(self, item):
-        return item in self.local_var_homes
+        return item in self.local_var_homes or item in self.func_arg_homes
 
     # env["var name"]
     def __getitem__(self, item):
         if item in self.local_var_homes:
             var_home = self.local_var_homes[item]
-            if self.use_registers and isinstance(var_home, str): # register
-                return var_home
-            else:
-                stk_offset = -8 * var_home
-                return f'[rbp + {stk_offset}]'
+            multiplier = -8 # local variables grow downwards below rbp (callee frame)
+        elif item in self.func_arg_homes:
+            var_home = self.func_arg_homes[item]
+            multiplier = +8 # function arguments are above rbp in the caller's frame
         else:
             raise KeyError(f'{item} not found in environment')
-
-    # env["var name"] = slot_id
-    def __setitem__(self, item, home):
-        if self.is_register(home):
-            if self.use_registers:
-                self.local_var_homes[item] = home
-                self.occupied_registers.add(home)
-                if home in self.available_registers:
-                    self.available_registers.remove(home)
-            else:
-                raise RuntimeError('Register allocation disabled')
+        
+        if isinstance(var_home, str): # register
+                return var_home
         else:
-            raise RuntimeError('Only register homes can be set directly')
+            stk_offset = multiplier * var_home
+            return f'[rbp + {stk_offset}]'
+        
 
-    # del env["var name"]
+
+    # env["var name"] = slot_id ONLY for function arguments
+    def __setitem__(self, item, home):
+        self.func_arg_homes[item] = home
+        if isinstance(home, str): # register
+            self.occupied_registers.add(home)
+            if home in self.available_registers:
+                self.available_registers.remove(home)
+
+    # del env["var name"] only for local variables
     def __delitem__(self, item):
         var_home = self.local_var_homes[item]
         if self.use_registers and var_home in self.occupied_registers:
@@ -80,6 +87,7 @@ class Environment:
             self.next_avialable_stk_id -= 1
         del self.local_var_homes[item]
 
+    # add a new local variable
     def add(self, item):
         if self.use_registers and self.available_registers:
             self.local_var_homes[item] = self.available_registers.pop()
@@ -299,6 +307,9 @@ class Compiler:
                 var_home = env[id]
                 asm.emit_instr(f'mov {var_home}, rax')
 
+            # Functions compilation
+            # Notes: https://course.ccs.neu.edu/cs4410sp24/lec_function-calls_notes.html
+
             #------------------- Function definition -----------------
             case AST.FunctionDef(name, arguments, body):
                 print(f'Compiling FunctionDef: {name}')
@@ -314,8 +325,10 @@ class Compiler:
 
                 # Map arguments to environnment slots
                 for idx, arg in enumerate(arguments.args):
-                    if idx < len(env.register_arguments):
+                    if idx < env.num_register_arguments:
                         env[arg.arg] = env.register_arguments[idx]
+                    else:
+                        env[arg.arg] = (idx - env.num_register_arguments) + 2  # +2 to account for return address and old rbp
 
                 print(env.local_var_homes)
 
@@ -343,8 +356,11 @@ class Compiler:
                 # Evaluate arguments and push them in reverse order
                 for idx in range(len(arguments)-1, -1, -1):
                     compile_ast(arguments[idx], env) # argument value in rax
-                    arg_dst = env.register_arguments[idx] if idx < len(env.register_arguments) else f'[rsp + {8 * (len(arguments) - idx - 1)}]'
-                    asm.emit_instr(f'mov {arg_dst}, rax')
+                    if idx < env.num_register_arguments:
+                        arg_dst = env.register_arguments[idx] 
+                        asm.emit_instr(f'mov {arg_dst}, rax')
+                    else:
+                        asm.emit_instr(f'push rax')
 
                 # Call function
                 if hasattr(func, 'id'):
@@ -354,10 +370,11 @@ class Compiler:
                 else:
                     raise NotImplementedError('Only simple function calls supported')
                 # Pop arguments off the stack
-                if len(arguments) > len(env.register_arguments):
-                    asm.emit_instr(f'add rsp, {8 * len(arguments)}')
+                if len(arguments) > env.num_register_arguments:
+                    num_stack_args = len(arguments) - env.num_register_arguments
+                    asm.emit_instr(f'add rsp, {8 * num_stack_args}')
 
-                # Pop caller save registers from the stack (rax not included)
+                # Pop caller save registers from the stack (rax excluded)
                 for reg in reversed(env.caller_save_registers): 
                     if reg != 'rax': # result in rax
                         asm.emit_instr(f'pop {reg}')

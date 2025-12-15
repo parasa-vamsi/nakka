@@ -182,14 +182,13 @@ class TestCompiler(unittest.TestCase):
         expected = exec(program, {'__builtins__': None}, {})
         self.run_test(program, expected)
 
-    def test_16_function_register_only_args(self):
+    def test_16_function_with_args(self):
         program = textwrap.dedent('''
-            def f1(arg1, arg2, arg3, arg4, arg5, arg6):
-                return (arg1 - arg2) * ((arg3 % arg4) - (arg5 / arg6))
-
-            # def f2():
-            #     x = 81; y = 9
-            #     return (x / y) * 2 #18
+            def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
+                # return (arg1 - arg2) * ((arg3 % arg4) - (arg5 / arg6))
+                x = (arg1 - arg2) * ((arg3 % arg4) - (arg5 % arg6))
+                x = (x << arg7) - ((arg8 >> arg9) * arg10)
+                return x
 
             a = 1
             b = 2
@@ -197,7 +196,8 @@ class TestCompiler(unittest.TestCase):
             d = 4
             e = 15
 
-            z = f1(10, e >> 2, 3 + c, 2, -9 * b, 3) 
+            #      1     2       3    4     5    6  7   8  9  10
+            z = f1(10, e >> 2, 3 + c, 2, -9 * b, 3, c, 147, 2, d) 
             z
             ''')
         expected = exec(program, {'__builtins__': None}, {})
