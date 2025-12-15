@@ -349,7 +349,7 @@ class Compiler:
                 # Save only the occupied caller-save registers before we clobber them
                 # These hold local variable values that must be preserved across the call
                 asm.emit_comment('Push occupied caller-save registers', marker='-')
-                occupied_caller_saves = [reg for reg in env.caller_save_registers 
+                occupied_caller_saves = [reg for reg in env.caller_save_registers
                                         if reg in env.occupied_registers and reg != 'rax']
                 for reg in occupied_caller_saves:
                     asm.emit_instr(f'push {reg}')
@@ -368,15 +368,21 @@ class Compiler:
                 # appropriate argument registers in reverse order.
                 max_reg_idx = min(env.num_register_arguments - 1, len(arguments) - 1)
                 # evaluate and push temps
+                temps = []
                 for idx in range(max_reg_idx + 1):
                     asm.emit_comment('Evaluate register argument', marker='-')
                     compile_ast(arguments[idx], env)  # value in rax
-                    asm.emit_instr('push rax')
+                    dst_reg = env.register_arguments[idx]
+                    if dst_reg in env.occupied_registers:
+                        asm.emit_instr(f'push rax;  dst={dst_reg}')
+                        temps.append(dst_reg)
+                    else:
+                        asm.emit_instr(f'mov {dst_reg}, rax')
+
                 # pop into argument registers (high->low)
                 asm.emit_comment('Move arguments from stack to registers', marker='-')
-                for idx in range(max_reg_idx, -1, -1):
-                    arg_dst = env.register_arguments[idx]
-                    asm.emit_instr(f'pop {arg_dst}')
+                while temps:
+                    asm.emit_instr(f'pop {temps.pop()}')
 
                 # Call function
                 if hasattr(func, 'id'):
