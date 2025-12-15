@@ -306,17 +306,17 @@ class Compiler:
             #------------------- Function definition -----------------
             case AST.FunctionDef(name, arguments, body):
                 print(f'Compiling FunctionDef: {name}')
-                self.asm.emit_label(name)
+                asm.emit_label(name)
                 asm.emit_comment(f'function: {name}', marker='*')
-                self.asm.emit_instr('push rbp')
-                self.asm.emit_instr('mov rbp, rsp')
-                self.asm.emit_instr('sub rsp, 8000  ; 100 local variables') # allocate stack space for local variables
+                asm.emit_instr('push rbp')
+                asm.emit_instr('mov rbp, rsp')
+                asm.emit_instr('sub rsp, 8000  ; 100 local variables') # allocate stack space for local variables
 
                 # push callee save registers
                 asm.emit_comment('Push callee-save registers', marker='-')
                 for reg in env.callee_save_registers:
                     if reg != 'rbp' and reg != 'rsp': # leave instr takes care of rbp and rsp
-                        self.asm.emit_instr(f'push {reg}')
+                        asm.emit_instr(f'push {reg}')
 
                 # Map arguments to environnment slots
                 for idx, arg in enumerate(arguments.args):
@@ -336,10 +336,10 @@ class Compiler:
                 asm.emit_comment('Pop callee-save registers', marker='-')
                 for reg in reversed(env.callee_save_registers):
                     if reg != 'rbp' and reg != 'rsp':
-                        self.asm.emit_instr(f'pop {reg}')
+                        asm.emit_instr(f'pop {reg}')
 
-                self.asm.emit_instr('leave')
-                self.asm.emit_instr('ret')
+                asm.emit_instr('leave')
+                asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, arguments, keywords):
