@@ -187,7 +187,7 @@ class TestCompiler(unittest.TestCase):
             def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
                 # return (arg1 - arg2) * ((arg3 % arg4) - (arg5 // arg6))
                 x = (arg1 - arg2) * ((arg3 % arg4) - (arg5 // arg6))
-                x = (x << arg7) % ((arg8 >> arg9) * arg10)
+                x = (x << arg7) + ((arg8 >> arg9) * arg10)
                 return x
 
             a = 1

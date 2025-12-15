@@ -48,11 +48,12 @@ class Environment:
         else:
             stk_offset = multiplier * var_home
             return f'[rbp + {stk_offset}]'
-        
-
 
     # env["var name"] = slot_id ONLY for function arguments
     def __setitem__(self, item, home):
+        if item in self.local_var_homes:
+            raise NotImplementedError(f'Cannot directly assign local variable {item} home; use add() method instead')
+        
         self.func_arg_homes[item] = home
         if isinstance(home, str): # register
             self.occupied_registers.add(home)
