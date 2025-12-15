@@ -357,6 +357,7 @@ class Compiler:
                 asm.emit_comment('Prepare function arguments', marker='-')
                 # Prepare stack arguments (indices 6+) by pushing them in reverse order
                 for idx in range(len(arguments) - 1, env.num_register_arguments - 1, -1):
+                    asm.emit_comment('Evaluate stack argument', marker='-')
                     compile_ast(arguments[idx], env)  # value in rax
                     asm.emit_instr(f'push rax')
 
@@ -368,9 +369,11 @@ class Compiler:
                 max_reg_idx = min(env.num_register_arguments - 1, len(arguments) - 1)
                 # evaluate and push temps
                 for idx in range(max_reg_idx + 1):
+                    asm.emit_comment('Evaluate register argument', marker='-')
                     compile_ast(arguments[idx], env)  # value in rax
                     asm.emit_instr('push rax')
                 # pop into argument registers (high->low)
+                asm.emit_comment('Move arguments from stack to registers', marker='-')
                 for idx in range(max_reg_idx, -1, -1):
                     arg_dst = env.register_arguments[idx]
                     asm.emit_instr(f'pop {arg_dst}')
@@ -378,7 +381,7 @@ class Compiler:
                 # Call function
                 if hasattr(func, 'id'):
                     asm.emit_comment('Call the function', marker='*')
-                    asm.emit_comment(f'registers in use before call: {env.occupied_registers}')
+                    asm.emit_comment(f'Registers in use before call: {env.occupied_registers}')
                     asm.emit_instr(f'call {func.id}')
                 else:
                     raise NotImplementedError('Only simple function calls supported')
@@ -399,7 +402,6 @@ class Compiler:
                 print('Compiling Return')
                 asm.emit_comment('return')
                 compile_ast(value, env)
-                # asm.emit_instr('ret')
 
             case unknown:
                 raise NotImplementedError(f'language feature not supported for {type(unknown)}')
