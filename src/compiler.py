@@ -24,11 +24,11 @@ class Environment:
         self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
         self.caller_save_registers = ['rax'] + self.register_arguments + ['r10', 'r11']
         self.callee_save_registers = ['rbx', 'rbp', 'rsp', 'r12', 'r13', 'r14', 'r15']
-    
+
     @property
     def num_register_arguments(self):
         return len(self.register_arguments)
-    
+
     # For var in env
     def __contains__(self, item):
         return item in self.local_var_homes or item in self.func_arg_homes
@@ -43,7 +43,7 @@ class Environment:
             multiplier = +8 # function arguments are above rbp in the caller's frame
         else:
             raise KeyError(f'{item} not found in environment')
-        
+
         if isinstance(var_home, str): # register
                 return var_home
         else:
@@ -54,7 +54,7 @@ class Environment:
     def __setitem__(self, item, home):
         if item in self.local_var_homes:
             raise NotImplementedError(f'Cannot directly assign local variable {item} home; use add() method instead')
-        
+
         self.func_arg_homes[item] = home
         if isinstance(home, str): # register
             self.occupied_registers.add(home)

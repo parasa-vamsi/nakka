@@ -196,7 +196,7 @@ class TestCompiler(unittest.TestCase):
             e = 15
 
             # z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4) # works
-            z = f1(a, b, c, d, e, 11, 55, 3, 9, 4) 
+            z = f1(a, b, c, d, e, 11, 55, 3, 9, 4)
             z
             ''')
         namespace = {}
@@ -217,9 +217,10 @@ class TestCompiler(unittest.TestCase):
             d = 4
             e = 15
 
+
             #      1     2       3    4     5    6  7   8  9  10
             # z = f1(10, e , 3 + c, 2, -9 * b, 3, c, 147, 2, d)
-            z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4) 
+            z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4)
             z
             ''')
         namespace = {}
