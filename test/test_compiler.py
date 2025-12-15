@@ -228,14 +228,13 @@ class TestCompiler(unittest.TestCase):
         expected = namespace.get('z')
         self.run_test(program, expected)
 
-    @skip("Skipping test_18 for now")
     def test_18(self):
         program = textwrap.dedent('''
-            def f1(arg1, arg2, arg3):
-                x = (arg1 % arg2)
-                return x + arg3
+            def f1(arg1, arg2, arg3, arg4):
+                x = (arg1 % arg2) >> 2
+                return x + arg3 + arg4
 
-            z = f1(27, 10, -5) 
+            z = f1(520, 100, -5, 122)
             z
             ''')
         namespace = {}

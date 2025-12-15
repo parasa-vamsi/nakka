@@ -224,6 +224,8 @@ class Compiler:
                         asm.emit_instr(f'imul rax, {opr_right_home}')
 
                     case AST.FloorDiv() | AST.Mod(): # AST.Div() deprecated to enable automated testing
+                        if 'rdx' in env.occupied_registers:
+                            asm.emit_instr('push rdx;   prevent rdx clobbering')
                         SIZE = '' if env.is_register(opr_right_home) else 'QWORD'
                         asm.emit_code_block(f'''\
                         ; division (cqto has issues)
@@ -233,6 +235,8 @@ class Compiler:
                         ''')
                         if isinstance(op, AST.Mod):
                             asm.emit_instr("mov rax, rdx")
+                        if 'rdx' in env.occupied_registers:
+                            asm.emit_instr('pop rdx;    restore rdx')
 
                     case AST.Gt() | AST.GtE() | AST.Lt() | AST.LtE() | AST.Eq() | AST.NotEq():
                         cc_map = {AST.Gt : 'g', AST.GtE : 'ge', AST.Lt : 'l',
@@ -255,11 +259,15 @@ class Compiler:
                         op_map = {AST.RShift : 'sar', AST.LShift : 'sal'}
                         operator = op_map[type(op)]
                         # TODO: raise error for negative shift count? C/Java doesn't and returns 0
+                        if 'rcx' in env.occupied_registers:
+                            asm.emit_instr('push rcx;   prevent rcx clobbering')
                         asm.emit_code_block(f'''\
                         ; binop shift
                         mov rcx, {opr_right_home}
                         {operator} rax, cl
                         ''')
+                        if 'rcx' in env.occupied_registers:
+                            asm.emit_instr('pop rcx;    restore rcx')
                     case _:
                         raise NotImplementedError("Binary op not implemented")
 
