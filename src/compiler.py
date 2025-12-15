@@ -306,13 +306,14 @@ class Compiler:
             #------------------- Function definition -----------------
             case AST.FunctionDef(name, arguments, body):
                 print(f'Compiling FunctionDef: {name}')
-                asm.emit_comment(f'function: {name}')
                 self.asm.emit_label(name)
+                asm.emit_comment(f'function: {name}', marker='*')
                 self.asm.emit_instr('push rbp')
                 self.asm.emit_instr('mov rbp, rsp')
                 self.asm.emit_instr('sub rsp, 8000  ; 100 local variables') # allocate stack space for local variables
 
                 # push callee save registers
+                asm.emit_comment('Push callee-save registers', marker='-')
                 for reg in env.callee_save_registers:
                     if reg != 'rbp' and reg != 'rsp': # leave instr takes care of rbp and rsp
                         self.asm.emit_instr(f'push {reg}')
@@ -327,30 +328,33 @@ class Compiler:
                 print(env.local_var_homes)
 
                 # Compile function body
+                asm.emit_comment('Compile function body', marker='-')
                 for stmt in body:
                     compile_ast(stmt, env)
 
                 # pop callee save registers
+                asm.emit_comment('Pop callee-save registers', marker='-')
                 for reg in reversed(env.callee_save_registers):
                     if reg != 'rbp' and reg != 'rsp':
                         self.asm.emit_instr(f'pop {reg}')
 
                 self.asm.emit_instr('leave')
-                # self.asm.emit_instr('pop rbp')
                 self.asm.emit_instr('ret')
 
             #------------------- Function call -----------------
             case AST.Call(func, arguments, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
-                asm.emit_comment(f'call {getattr(func, "id", func)}')
+                asm.emit_comment(f'call {getattr(func, "id", func)}', marker='*')
 
                 # Save only the occupied caller-save registers before we clobber them
                 # These hold local variable values that must be preserved across the call
+                asm.emit_comment('Push occupied caller-save registers', marker='-')
                 occupied_caller_saves = [reg for reg in env.caller_save_registers 
                                         if reg in env.occupied_registers and reg != 'rax']
                 for reg in occupied_caller_saves:
                     asm.emit_instr(f'push {reg}')
 
+                asm.emit_comment('Prepare function arguments', marker='-')
                 # Prepare stack arguments (indices 6+) by pushing them in reverse order
                 for idx in range(len(arguments) - 1, env.num_register_arguments - 1, -1):
                     compile_ast(arguments[idx], env)  # value in rax
@@ -373,18 +377,22 @@ class Compiler:
 
                 # Call function
                 if hasattr(func, 'id'):
+                    asm.emit_comment('Call the function', marker='*')
                     asm.emit_comment(f'registers in use before call: {env.occupied_registers}')
                     asm.emit_instr(f'call {func.id}')
                 else:
                     raise NotImplementedError('Only simple function calls supported')
                 # Pop arguments off the stack
                 if len(arguments) > env.num_register_arguments:
+                    asm.emit_comment('Pop the stack allocated arguments', marker='-')
                     num_stack_args = len(arguments) - env.num_register_arguments
                     asm.emit_instr(f'add rsp, {8 * num_stack_args}')
 
                 # Pop occupied caller-save registers from the stack (in reverse order)
+                asm.emit_comment('Pop the caller-save registers', marker='-')
                 for reg in reversed(occupied_caller_saves):
                     asm.emit_instr(f'pop {reg}')
+                asm.emit_comment('End of function call compilation', marker='*')
 
             #------------------- Return statement -----------------
             case AST.Return(value):

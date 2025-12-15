@@ -35,9 +35,9 @@ class X86AsmUtils:
     def emit_instr(self, instr):
         self.code += f"\t{instr}\n"
 
-    def emit_comment(self, comment):
+    def emit_comment(self, comment, marker='='):
         # Format as ; ----------- <comment> -----------
-        dashes = '-' * ((60 - len(comment)) // 2)
+        dashes = marker * ((60 - len(comment)) // 2)
         self.code += f"\t; {dashes} {comment} {dashes}\n"
 
     def emit_label(self, label):
