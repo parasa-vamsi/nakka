@@ -335,10 +335,12 @@ class Compiler:
             case AST.Call(func, arguments, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
 
-                # Push all caller-save registers before we clobber them
-                for reg in env.caller_save_registers:
-                    if reg != 'rax':  # rax is our scratch register
-                        asm.emit_instr(f'push {reg}')
+                # Save only the occupied caller-save registers before we clobber them
+                # These hold local variable values that must be preserved across the call
+                occupied_caller_saves = [reg for reg in env.caller_save_registers 
+                                        if reg in env.occupied_registers and reg != 'rax']
+                for reg in occupied_caller_saves:
+                    asm.emit_instr(f'push {reg}')
 
                 # Prepare stack arguments (indices 6+) by pushing them in reverse order
                 for idx in range(len(arguments) - 1, env.num_register_arguments - 1, -1):
@@ -346,13 +348,13 @@ class Compiler:
                     asm.emit_instr(f'push rax')
 
                 # Prepare register arguments (indices 0-5).
-                # To avoid clobbering sources that may live in registers we
+                # To avoid clobbering sources that may live in registers, we
                 # first evaluate each register argument and push its value
                 # onto the stack (left-to-right). Then pop them into the
-                # appropriate argument registers in right-to-left order.
+                # appropriate argument registers in reverse order.
                 max_reg_idx = min(env.num_register_arguments - 1, len(arguments) - 1)
                 # evaluate and push temps
-                for idx in range(0, max_reg_idx + 1):
+                for idx in range(max_reg_idx + 1):
                     compile_ast(arguments[idx], env)  # value in rax
                     asm.emit_instr('push rax')
                 # pop into argument registers (high->low)
@@ -371,10 +373,9 @@ class Compiler:
                     num_stack_args = len(arguments) - env.num_register_arguments
                     asm.emit_instr(f'add rsp, {8 * num_stack_args}')
 
-                # Pop caller-save registers from the stack (in reverse order)
-                for reg in reversed(env.caller_save_registers):
-                    if reg != 'rax':
-                        asm.emit_instr(f'pop {reg}')
+                # Pop occupied caller-save registers from the stack (in reverse order)
+                for reg in reversed(occupied_caller_saves):
+                    asm.emit_instr(f'pop {reg}')
 
             #------------------- Return statement -----------------
             case AST.Return(value):
