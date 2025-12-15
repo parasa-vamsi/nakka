@@ -79,10 +79,10 @@ class TestCompiler(unittest.TestCase):
                  'x = 7; y = -3; z = x - y' : 10,
                  'x = (1 + (4 if 5 else -3)) if (4 + ~3) else (-7 - -6)' : -1,
                  'x = (-11 * (4 if 5 else -3)) if (4 - ~3) else (-7 - -6)' : -44,
-                 '-144 / 12': -12,
-                 '(-1 + 9) / (2 + -5)' : -2,
+                 '-144 // 12': -12,
+                 '(-1 + 9) // (2 + -5)' : -2,
                  '121 % 7' : 2,
-                 '(1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))' : -1,
+                 '(1 + 2) + ((5 * 4 ) - (48 // (10 % 8)))' : -1,
                  '-456 >> 3' : -57,
                  '-137 << 4' : -2192,
                  '137 >> 4' : 8,
@@ -149,7 +149,7 @@ class TestCompiler(unittest.TestCase):
 
     def test_14_long_blocks(self):
         program = '''
-                x = (1 + 2) + ((5 * 4 ) - (48 / (10 % 8)))
+                x = (1 + 2) + ((5 * 4 ) - (48 // (10 % 8)))
                 z =  99
                 l = 46
                 p = 57
@@ -168,7 +168,7 @@ class TestCompiler(unittest.TestCase):
 
             def f2():
                 x = 81; y = 9
-                return (x / y) * 2 #18
+                return (x // y) * 2 #18
 
             a = 1
             b = 2
@@ -185,9 +185,9 @@ class TestCompiler(unittest.TestCase):
     def test_16_function_with_args(self):
         program = textwrap.dedent('''
             def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
-                # return (arg1 - arg2) * ((arg3 % arg4) - (arg5 / arg6))
-                x = (arg1 - arg2) * ((arg3 % arg4) - (arg5 % arg6))
-                x = (x << arg7) - ((arg8 >> arg9) * arg10)
+                # return (arg1 - arg2) * ((arg3 % arg4) - (arg5 // arg6))
+                x = (arg1 - arg2) * ((arg3 % arg4) - (arg5 // arg6))
+                x = (x << arg7) % ((arg8 >> arg9) * arg10)
                 return x
 
             a = 1

@@ -4,25 +4,7 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-def f1(arg0):
-    # x = 9; y = 7
-    y = 7
-    return (y - arg0) * 2 # -4
-
-def f2():
-    x = 81; y = 9
-    return (x / y) * 2 #18
-    # return -3
-
-a = 1
-b = 2
-c = 3
-d = 4
-e = 5
-
-# z = f1(d) - f2() + e
-z  = f1(d) 
-z
+144 // 12
 
 """
 
@@ -233,7 +215,7 @@ class Compiler:
                     case AST.Mult():
                         asm.emit_instr(f'imul rax, {opr_right_home}')
 
-                    case AST.Div() | AST.Mod():
+                    case AST.FloorDiv() | AST.Mod(): # AST.Div() deprecated to enable automated testing
                         SIZE = '' if env.is_register(opr_right_home) else 'QWORD'
                         asm.emit_code_block(f'''\
                         ; division (cqto has issues)
