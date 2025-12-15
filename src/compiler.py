@@ -17,7 +17,8 @@ class Environment:
         self.func_arg_homes = dict()
         self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
-        self.available_registers = {'rbx', 'rsi', 'rdi', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
+        # Use a deterministic ordered list of available registers (prefer callee-saved first)
+        self.available_registers = ['rbx', 'r12', 'r13', 'r14', 'r15', 'r10', 'r11', 'r9', 'r8', 'rdi', 'rsi']
         self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx', 'rcx'}
         self.occupied_registers = set()
         self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
@@ -65,7 +66,8 @@ class Environment:
         var_home = self.local_var_homes[item]
         if self.use_registers and var_home in self.occupied_registers:
             self.occupied_registers.remove(var_home)
-            self.available_registers.add(var_home)
+            # return the register to the available pool at the end
+            self.available_registers.append(var_home)
         else:
             self.next_avialable_stk_id -= 1
         del self.local_var_homes[item]
@@ -73,6 +75,7 @@ class Environment:
     # add a new local variable
     def add(self, item):
         if self.use_registers and self.available_registers:
+            # allocate from the end for stack-like behavior
             self.local_var_homes[item] = self.available_registers.pop()
             self.occupied_registers.add(self.local_var_homes[item])
         else:
@@ -331,25 +334,36 @@ class Compiler:
             #------------------- Function call -----------------
             case AST.Call(func, arguments, keywords):
                 print(f'Compiling Call: {getattr(func, "id", func)}')
-                # Push caller save registers on to the stack (excluding rax)
+
+                # Push all caller-save registers before we clobber them
                 for reg in env.caller_save_registers:
-                    if reg != 'rax': # result in rax
+                    if reg != 'rax':  # rax is our scratch register
                         asm.emit_instr(f'push {reg}')
 
-                # Evaluate arguments and push them in reverse order
-                for idx in range(len(arguments)-1, -1, -1):
-                    compile_ast(arguments[idx], env) # argument value in rax
-                    if idx < env.num_register_arguments:
-                        arg_dst = env.register_arguments[idx] 
-                        asm.emit_instr(f'mov {arg_dst}, rax')
-                    else:
-                        asm.emit_instr(f'push rax')
+                # Prepare stack arguments (indices 6+) by pushing them in reverse order
+                for idx in range(len(arguments) - 1, env.num_register_arguments - 1, -1):
+                    compile_ast(arguments[idx], env)  # value in rax
+                    asm.emit_instr(f'push rax')
+
+                # Prepare register arguments (indices 0-5).
+                # To avoid clobbering sources that may live in registers we
+                # first evaluate each register argument and push its value
+                # onto the stack (left-to-right). Then pop them into the
+                # appropriate argument registers in right-to-left order.
+                max_reg_idx = min(env.num_register_arguments - 1, len(arguments) - 1)
+                # evaluate and push temps
+                for idx in range(0, max_reg_idx + 1):
+                    compile_ast(arguments[idx], env)  # value in rax
+                    asm.emit_instr('push rax')
+                # pop into argument registers (high->low)
+                for idx in range(max_reg_idx, -1, -1):
+                    arg_dst = env.register_arguments[idx]
+                    asm.emit_instr(f'pop {arg_dst}')
 
                 # Call function
                 if hasattr(func, 'id'):
                     asm.emit_comment(f'registers in use before call: {env.occupied_registers}')
                     asm.emit_instr(f'call {func.id}')
-                    # Return value is in rax (rax is always used as scratch register)
                 else:
                     raise NotImplementedError('Only simple function calls supported')
                 # Pop arguments off the stack
@@ -357,9 +371,9 @@ class Compiler:
                     num_stack_args = len(arguments) - env.num_register_arguments
                     asm.emit_instr(f'add rsp, {8 * num_stack_args}')
 
-                # Pop caller save registers from the stack (rax excluded)
-                for reg in reversed(env.caller_save_registers): 
-                    if reg != 'rax': # result in rax
+                # Pop caller-save registers from the stack (in reverse order)
+                for reg in reversed(env.caller_save_registers):
+                    if reg != 'rax':
                         asm.emit_instr(f'pop {reg}')
 
             #------------------- Return statement -----------------
