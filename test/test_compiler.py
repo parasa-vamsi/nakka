@@ -189,6 +189,9 @@ class TestCompiler(unittest.TestCase):
             def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
                 return arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7 + arg8 + arg9 + arg10
 
+            def f2(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
+                return (((arg1 * arg2)  << arg3) // arg4) + -arg5 + arg6 + arg7 + arg8 + arg9 + arg10
+
             a = 1
             b = 2
             c = 5
@@ -197,6 +200,11 @@ class TestCompiler(unittest.TestCase):
 
             # z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4) # works
             z = f1(a, b, c, d, e, 11, 55, 3, 9, 4)
+            f = 21
+            g = 96
+            h = 99
+            i = -57
+            z = f2(a, b, c, d, e, f, g, h, i, z)
             z
             ''')
         namespace = {}
@@ -207,8 +215,8 @@ class TestCompiler(unittest.TestCase):
     def test_17(self):
         program = textwrap.dedent('''
             def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
-                x = (arg1 - arg2) + ((arg3 + arg4) - (arg5 - arg6))
-                x = (x - arg7) + ((arg8 + arg9) + arg10)
+                x = (arg1 // arg2) + ((arg3 << arg4) - (arg5 - arg6))
+                x = (x - arg7) + ((arg8 + arg9) % arg10)
                 return x
 
             a = 1
@@ -219,8 +227,8 @@ class TestCompiler(unittest.TestCase):
 
 
             #      1     2       3    4     5    6  7   8  9  10
-            # z = f1(10, e , 3 + c, 2, -9 * b, 3, c, 147, 2, d)
-            z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4)
+            z = f1(10, e , 3 + c, 2, -9 * b, 3, c, 147, 2, d)
+            # z = f1(10, 3, 7, 2, 17, 11, 55, 3, 9, 4)
             z
             ''')
         namespace = {}
