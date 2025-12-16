@@ -4,7 +4,14 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-144 // 12
+def f1(a):
+    return f2(a + 1)
+
+def f2(b):
+    return b * 3
+
+x = f1(1)
+x
 
 """
 
@@ -146,7 +153,7 @@ class Compiler:
 
     def compile_functions(self):
         for fd_ast in self.func_defs:
-            fenv = Environment(name=fd_ast.name, parent=self.main_env)
+            fenv = Environment(name=fd_ast.name, parent=None) # TODO: what parent should be used?
             self.compile_ast(node=fd_ast, env=fenv)
 
     def compile_ast(self, node: AST.AST, env: Environment):

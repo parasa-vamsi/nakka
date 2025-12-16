@@ -250,6 +250,26 @@ class TestCompiler(unittest.TestCase):
         expected = namespace.get('z')
         self.run_test(program, expected)
 
+    def test_19(self):
+        program = textwrap.dedent('''
+            def f1(a):
+                return a + 1
+
+            def f2(b):
+                return b * 3
+
+            def f3(c):
+                return f2(c)
+
+            z = f1(f2(1))
+            z = z + f3(2)
+            z
+            ''')
+        env = {'__builtins__': {}}
+        exec(program, env, env)
+        expected = env.get('z')
+        self.run_test(program, expected)
+
 
 if __name__ == '__main__':
     unittest.main()
