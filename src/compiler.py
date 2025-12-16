@@ -33,16 +33,18 @@ class Environment:
         self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
         # Use a deterministic ordered list of available registers (prefer callee-saved first)
-        self.available_registers = ['rbx', 'r12', 'r13', 'r14', 'r15', 'r10', 'r11', 'r9', 'r8', 'rdi', 'rsi']
-        self.restricted_registers = {'rax', 'rbp', 'rsp', 'rdx', 'rcx'}
+        self.restricted_registers = {'rax', 'rbp', 'rsp'}
+
+        self.arg_pass_registers = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
+        self.caller_save_registers = self.arg_pass_registers + ['r10', 'r11'] # rax is caller-saved but exluded
+        self.callee_save_registers = ['rbx', 'r12', 'r13', 'r14', 'r15'] # rbp, rsp are callee-saved but are implicitly saved by callee frame
+        # Use a deterministic ordered list of available registers (prefer callee-saved first)
+        self.available_registers = self.caller_save_registers + self.callee_save_registers # registers popped for use from right (stack)
         self.occupied_registers = set()
-        self.register_arguments = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
-        self.caller_save_registers = ['rax'] + self.register_arguments + ['r10', 'r11']
-        self.callee_save_registers = ['rbx', 'rbp', 'rsp', 'r12', 'r13', 'r14', 'r15']
 
     @property
     def num_register_arguments(self):
-        return len(self.register_arguments)
+        return len(self.arg_pass_registers)
 
     # For var in env
     def __contains__(self, item):
@@ -344,7 +346,7 @@ class Compiler:
                 # Map arguments to environnment slots
                 for idx, arg in enumerate(arguments.args):
                     if idx < env.num_register_arguments:
-                        env[arg.arg] = env.register_arguments[idx]
+                        env[arg.arg] = env.arg_pass_registers[idx]
                     else:
                         env[arg.arg] = (idx - env.num_register_arguments) + 2  # +2 to account for return address and old rbp
 
@@ -395,7 +397,7 @@ class Compiler:
                 for idx in range(max_reg_idx + 1):
                     asm.emit_comment('Evaluate register argument', marker='-')
                     compile_ast(arguments[idx], env)  # value in rax
-                    dst_reg = env.register_arguments[idx]
+                    dst_reg = env.arg_pass_registers[idx]
                     if dst_reg in env.occupied_registers:
                         asm.emit_instr(f'push rax;  dst={dst_reg}')
                         temps.append(dst_reg)
