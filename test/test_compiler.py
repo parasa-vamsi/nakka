@@ -270,6 +270,32 @@ class TestCompiler(unittest.TestCase):
         expected = env.get('z')
         self.run_test(program, expected)
 
+    def test_20(self):
+        program = textwrap.dedent('''
+            def fact(n):
+                return 1 if n <= 1 else n * fact(n-1)
+
+            z = fact(10)
+            z
+            ''')
+        env = {'__builtins__': {}}
+        exec(program, env, env)
+        expected = env.get('z')
+        self.run_test(program, expected)
+
+    def test_21(self):
+        program = textwrap.dedent('''
+            def climb_steps(n):
+                return n if n <= 2 else climb_steps(n-1) + climb_steps(n-2)
+
+            z = climb_steps(12)
+            z
+            ''')
+        env = {'__builtins__': {}}
+        exec(program, env, env)
+        expected = env.get('z')
+        self.run_test(program, expected)
+
 
 if __name__ == '__main__':
     unittest.main()

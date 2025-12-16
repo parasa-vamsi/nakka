@@ -4,14 +4,22 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-def f1(a):
-    return f2(a + 1)
+# x = 5
+# def f1(a):
+#     global x
+#     x = 7
+#     return x + a
 
-def f2(b):
-    return b * 3
+# def f2(b):
+#     return b * 3
 
-x = f1(1)
-x
+# z = f1(1)
+
+def fact(n):
+    return 1 if n <= 1 else n * fact(n-1)
+
+z = fact(10)
+z
 
 """
 
