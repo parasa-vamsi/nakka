@@ -4,15 +4,15 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-k = 5
-k += 2
-k
-# x = 10
-# y = 2
-# while x > 5:
-#     x += y
+x = 3
+y = 3
 
-# x
+if x > 5 or y > 2 :
+    x += 1
+else:
+    x -= 1
+
+x
 
 """
 
@@ -293,6 +293,23 @@ class Compiler:
                 asm.emit_instr(f'jmp {label_done}')
                 asm.emit_label(f'{label_else}')
                 compile_ast(else_exp, env)
+                asm.emit_label(f'{label_done}')
+
+            #------------------- if statement -----------------
+            case AST.If(test=if_exp, body=then_exp, orelse=else_exp):
+                print('Compiling If Statement')
+                asm.emit_comment('if-statement')
+                compile_ast(if_exp, env)
+                asm.emit_instr('cmp rax, 0')
+                label_else = gen_sym('ifstmt_else')
+                asm.emit_instr(f'je {label_else}')
+                for stmt in then_exp:
+                    compile_ast(stmt, env)
+                label_done = gen_sym('ifstmt_done')
+                asm.emit_instr(f'jmp {label_done}')
+                asm.emit_label(f'{label_else}')
+                for stmt in else_exp:
+                    compile_ast(stmt, env)
                 asm.emit_label(f'{label_done}')
 
             #------------------- Variable binding -----------------
