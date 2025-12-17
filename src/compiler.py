@@ -4,22 +4,15 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-# x = 5
-# def f1(a):
-#     global x
-#     x = 7
-#     return x + a
+k = 5
+k += 2
+k
+# x = 10
+# y = 2
+# while x > 5:
+#     x += y
 
-# def f2(b):
-#     return b * 3
-
-# z = f1(1)
-
-def fact(n):
-    return 1 if n <= 1 else n * fact(n-1)
-
-z = fact(10)
-z
+# x
 
 """
 
@@ -32,9 +25,7 @@ class Environment:
         self.func_arg_homes = dict()
         self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
-        # Use a deterministic ordered list of available registers (prefer callee-saved first)
         self.restricted_registers = {'rax', 'rbp', 'rsp'}
-
         self.arg_pass_registers = ['rdi', 'rsi', 'rdx', 'rcx', 'r8', 'r9'] # don't change the order!
         self.caller_save_registers = self.arg_pass_registers + ['r10', 'r11'] # rax is caller-saved but exluded
         self.callee_save_registers = ['rbx', 'r12', 'r13', 'r14', 'r15'] # rbp, rsp are callee-saved but are implicitly saved by callee frame
@@ -324,6 +315,48 @@ class Compiler:
                     env.add(id)
                 var_home = env[id]
                 asm.emit_instr(f'mov {var_home}, rax')
+
+            case AST.AugAssign(AST.Name(id), op, value):
+                # raise(NotImplementedError('working on aug assign'))
+                print('Compiling Augmented Assign')
+                asm.emit_comment(f'augmented assign to {id}')
+                if id not in env:
+                    LookupError(f'Variable {id} is not defined')
+                var_home = env[id]
+
+                compile_ast(value, env)
+                match op:
+                    case AST.Add():
+                        asm.emit_instr(f'add rax, {var_home}')
+                    case AST.Sub():
+                        asm.emit_instr(f'neg rax')
+                        asm.emit_instr(f'add rax, {var_home}')
+                    case _:
+                        raise NotImplementedError(" =op not implemented")
+                asm.emit_instr(f'mov {var_home}, rax;   store {id}')
+                asm.emit_comment(f'done augmented assign to {id}', marker='-')
+
+
+            #------------------- While loop -----------------
+            case AST.While(test, body):
+                print('Compiling While loop')
+                asm.emit_comment(f'while loop')
+                label_while_done = gen_sym('while_done')
+                label_while_test = gen_sym('while_test')
+                asm.emit_label(f'{label_while_test}')
+                asm.emit_comment(f'while loop test', marker='-')
+                compile_ast(test, env)
+                asm.emit_code_block(f'''\
+                        cmp rax, 0  ; condition false?
+                        jz {label_while_done}   ; exit while body
+                        ''')
+                asm.emit_comment(f'while loop body', marker='-')
+                for stmt in body:
+                    compile_ast(stmt, env)
+                asm.emit_instr(f'jmp {label_while_test}')
+                asm.emit_label(label_while_done)
+                asm.emit_comment(f'while loop done', marker='-')
+
 
             # Functions compilation
             # Notes: https://course.ccs.neu.edu/cs4410sp24/lec_function-calls_notes.html

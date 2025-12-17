@@ -212,7 +212,7 @@ class TestCompiler(unittest.TestCase):
         expected = namespace.get('z')
         self.run_test(program, expected)
 
-    def test_17(self):
+    def test_17_big_functions(self):
         program = textwrap.dedent('''
             def f1(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10):
                 x = (arg1 // arg2) + ((arg3 << arg4) - (arg5 - arg6))
@@ -236,7 +236,7 @@ class TestCompiler(unittest.TestCase):
         expected = namespace.get('z')
         self.run_test(program, expected)
 
-    def test_18(self):
+    def test_18_rdx_rcx_clobbering(self):
         program = textwrap.dedent('''
             def f1(arg1, arg2, arg3, arg4):
                 x = (arg1 % arg2) >> 2
@@ -250,7 +250,7 @@ class TestCompiler(unittest.TestCase):
         expected = namespace.get('z')
         self.run_test(program, expected)
 
-    def test_19(self):
+    def test_19_nested_calls(self):
         program = textwrap.dedent('''
             def f1(a):
                 return a + 1
@@ -270,7 +270,7 @@ class TestCompiler(unittest.TestCase):
         expected = env.get('z')
         self.run_test(program, expected)
 
-    def test_20(self):
+    def test_20_factorial(self):
         program = textwrap.dedent('''
             def fact(n):
                 return 1 if n <= 1 else n * fact(n-1)
@@ -283,7 +283,7 @@ class TestCompiler(unittest.TestCase):
         expected = env.get('z')
         self.run_test(program, expected)
 
-    def test_21(self):
+    def test_21_fibinacci(self):
         program = textwrap.dedent('''
             def climb_steps(n):
                 return n if n <= 2 else climb_steps(n-1) + climb_steps(n-2)
@@ -294,6 +294,22 @@ class TestCompiler(unittest.TestCase):
         env = {'__builtins__': {}}
         exec(program, env, env)
         expected = env.get('z')
+        self.run_test(program, expected)
+
+    def test_22_while_loop(self):
+        program = '''
+                k = 4
+                k += 2
+                x = 10
+                while x > 5:
+                    x -= k
+
+                x
+                '''
+        program = textwrap.dedent(program)
+        namespace = {}
+        exec(program, {'__builtins__': None}, namespace)
+        expected = namespace.get('x')
         self.run_test(program, expected)
 
 
