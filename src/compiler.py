@@ -405,12 +405,14 @@ class Compiler:
                         env[arg.arg] = (idx - env.num_register_arguments) + 2  # +2 to account for return address and old rbp
 
                 print(env.local_var_homes)
+                env.label_done_cleanup = f'{name}_done_cleanup'
 
                 # Compile function body
                 asm.emit_comment('Compile function body', marker='-')
                 for stmt in body:
                     compile_ast(stmt, env)
 
+                asm.emit_label(env.label_done_cleanup)
                 # pop callee save registers
                 asm.emit_comment('Pop callee-save registers', marker='-')
                 for reg in reversed(env.callee_save_registers):
@@ -419,6 +421,15 @@ class Compiler:
 
                 asm.emit_instr('leave')
                 asm.emit_instr('ret')
+
+
+            #------------------- Return statement -----------------
+            case AST.Return(value):
+                print('Compiling Return')
+                asm.emit_comment('return')
+                compile_ast(value, env)
+                asm.emit_instr(f'jmp {env.label_done_cleanup}')
+
 
             #------------------- Function call -----------------
             case AST.Call(func, arguments, keywords):
@@ -481,12 +492,6 @@ class Compiler:
                 for reg in reversed(occupied_caller_saves):
                     asm.emit_instr(f'pop {reg}')
                 asm.emit_comment('End of function call compilation', marker='*')
-
-            #------------------- Return statement -----------------
-            case AST.Return(value):
-                print('Compiling Return')
-                asm.emit_comment('return')
-                compile_ast(value, env)
 
             case unknown:
                 raise NotImplementedError(f'language feature not supported for {type(unknown)}')
