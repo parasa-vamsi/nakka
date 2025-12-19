@@ -272,15 +272,15 @@ class TestCompiler(unittest.TestCase):
 
     def test_20_factorial(self):
         program = textwrap.dedent('''
-            def fact(n):
+            def fact(n:Box):
                 return 1 if n <= 1 else n * fact(n-1)
 
             z = fact(10)
             z
             ''')
         env = {'__builtins__': {}}
-        exec(program, env, env)
-        expected = env.get('z')
+        # exec(program, env, env)
+        expected = 3628800 #env.get('z')
         self.run_test(program, expected)
 
     def test_21_fibinacci(self):

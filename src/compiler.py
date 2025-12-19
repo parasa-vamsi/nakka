@@ -4,8 +4,13 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
+def f(y:Box):
+    k = *y
+    return k + 1
+
 x:Box = 5
-x
+*x
+
 """
 
 class Environment:
@@ -24,7 +29,7 @@ class Environment:
         self.callee_save_registers = ['rbx', 'r12', 'r13', 'r14', 'r15'] # rbp, rsp are callee-saved but are implicitly saved by callee frame
         # Use a deterministic ordered list of available registers (prefer callee-saved first)
         self.available_registers = self.caller_save_registers + self.callee_save_registers # registers popped for use from right (stack)
-        self.occupied_registers = set(['rdi'])
+        self.occupied_registers = set(['rdi'] if name == 'main' else [])
 
     @property
     def num_register_arguments(self):
@@ -318,11 +323,22 @@ class Compiler:
                 asm.emit_comment(f'load variable {id}')
                 if id in env:
                     var_home = env[id]
-                    if env.local_var_types[id] == 'Box':
-                        var_home =f'[{var_home}]'
                     asm.emit_instr(f'mov rax, {var_home}')
                 else:
                     raise LookupError(f'Variable {id} is not assigned')
+
+            case AST.Starred(AST.Name(id)):
+                print(f'Compiling Name Expr: {id}')
+                asm.emit_comment(f'dereference variable {id}')
+                if id in env:
+                    if env.local_var_types[id] == 'Box':
+                        var_home = env[id]
+                        asm.emit_instr(f'mov rax, [{var_home}]')
+                    else:
+                        raise ReferenceError(f'Variable {id} is not a reference type')
+                else:
+                    raise LookupError(f'Variable {id} is not assigned')
+
 
             #case AST.Assign([AST.Name(id, AST.Store())], value): -> also works
             case AST.Assign([AST.Name(id)], value):
@@ -420,7 +436,8 @@ class Compiler:
 
                 # Map arguments to environnment slots
                 for idx, arg in enumerate(arguments.args):
-                    env.local_var_types[arg.arg] = 'i64'
+                    arg_type = 'i64' if arg.annotation is None else arg.annotation.id
+                    env.local_var_types[arg.arg] = arg_type
                     if idx < env.num_register_arguments:
                         env[arg.arg] = env.arg_pass_registers[idx]
                     else:
