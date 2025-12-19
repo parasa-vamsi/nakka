@@ -286,7 +286,11 @@ class TestCompiler(unittest.TestCase):
     def test_21_fibinacci(self):
         program = textwrap.dedent('''
             def climb_steps(n):
-                return n if n <= 2 else climb_steps(n-1) + climb_steps(n-2)
+                # return n if n <= 2 else climb_steps(n-1) + climb_steps(n-2) # works
+                if n <= 2:
+                    return n
+                else:
+                    return climb_steps(n-1) + climb_steps(n-2)
 
             z = climb_steps(12)
             z
@@ -311,6 +315,23 @@ class TestCompiler(unittest.TestCase):
         exec(program, {'__builtins__': None}, namespace)
         expected = namespace.get('x')
         self.run_test(program, expected)
+
+    def test_23_if_statement(self):
+        program = '''
+                x = 0
+
+                if x > 5: x += 5
+                elif x > 2: x += 7
+                else: x -= 10
+
+                x
+                '''
+        program = textwrap.dedent(program)
+        namespace = {}
+        exec(program, {'__builtins__': None}, namespace)
+        expected = namespace.get('x')
+        self.run_test(program, expected)
+
 
 
 if __name__ == '__main__':

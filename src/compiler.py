@@ -4,15 +4,8 @@ import src.asm as x86
 # Keep this formatting to avoid IndentationError
 program = \
 """
-def f(x):
-    if x > 5:
-        return 55
-    # else:
-    return -55
-
-z = f(6)
-z
-
+x:Box = 5
+x
 """
 
 class Environment:
@@ -21,6 +14,7 @@ class Environment:
         self.name = name
         self.parent = parent
         self.local_var_homes = dict()
+        self.local_var_types = dict()
         self.func_arg_homes = dict()
         self.use_registers = True
         self.next_avialable_stk_id = 1  # first local var at RBP - (8 x 1) = RBP - 8
@@ -30,7 +24,7 @@ class Environment:
         self.callee_save_registers = ['rbx', 'r12', 'r13', 'r14', 'r15'] # rbp, rsp are callee-saved but are implicitly saved by callee frame
         # Use a deterministic ordered list of available registers (prefer callee-saved first)
         self.available_registers = self.caller_save_registers + self.callee_save_registers # registers popped for use from right (stack)
-        self.occupied_registers = set()
+        self.occupied_registers = set(['rdi'])
 
     @property
     def num_register_arguments(self):
@@ -80,11 +74,12 @@ class Environment:
         del self.local_var_homes[item]
 
     # add a new local variable
-    def add(self, item):
+    def add(self, item, var_type=None):
         if self.use_registers and self.available_registers:
             # allocate from the end for stack-like behavior
             self.local_var_homes[item] = self.available_registers.pop()
             self.occupied_registers.add(self.local_var_homes[item])
+            self.local_var_types[item] = var_type
         else:
             self.local_var_homes[item] = self.next_avialable_stk_id
             self.next_avialable_stk_id += 1
@@ -323,6 +318,8 @@ class Compiler:
                 asm.emit_comment(f'load variable {id}')
                 if id in env:
                     var_home = env[id]
+                    if env.local_var_types[id] == 'Box':
+                        var_home =f'[{var_home}]'
                     asm.emit_instr(f'mov rax, {var_home}')
                 else:
                     raise LookupError(f'Variable {id} is not assigned')
@@ -333,9 +330,25 @@ class Compiler:
                 asm.emit_comment(f'assign to {id}')
                 compile_ast(value, env)
                 if id not in env:
-                    env.add(id)
+                    env.add(id, 'i64')
                 var_home = env[id]
                 asm.emit_instr(f'mov {var_home}, rax')
+
+            #------------------- Box  -----------------
+            case AST.AnnAssign(target=AST.Name(id), annotation=AST.Name('Box'), value=v):
+                # Create var entry in env as ref type
+                # Allocate space on heap, get address --> reg/stack
+                # store v on heap at var address
+                # raise NotImplementedError('Box WIP')
+                print('Compiling Single Assign (Reference type)')
+                asm.emit_comment(f'assign to ref {id}')
+                compile_ast(v, env)
+                if id not in env:
+                    env.add(id, 'Box')
+                var_home = env[id]
+                asm.emit_instr(f'mov {var_home}, rdi')
+                asm.emit_instr(f'mov [{var_home}], rax')
+                asm.emit_instr(f'add rdi, 8')
 
             case AST.AugAssign(AST.Name(id), op, value):
                 # raise(NotImplementedError('working on aug assign'))
@@ -372,11 +385,19 @@ class Compiler:
                         jz {label_while_done}   ; exit while body
                         ''')
                 asm.emit_comment(f'while loop body', marker='-')
+                env.current_while_done = label_while_done
                 for stmt in body:
                     compile_ast(stmt, env)
                 asm.emit_instr(f'jmp {label_while_test}')
                 asm.emit_label(label_while_done)
                 asm.emit_comment(f'while loop done', marker='-')
+
+            #------------------- Tuples  -----------------
+            case AST.Tuple(elts):
+                raise NotImplementedError()
+                for e in elts:
+                    pass
+
 
 
             # Functions compilation
@@ -399,6 +420,7 @@ class Compiler:
 
                 # Map arguments to environnment slots
                 for idx, arg in enumerate(arguments.args):
+                    env.local_var_types[arg.arg] = 'i64'
                     if idx < env.num_register_arguments:
                         env[arg.arg] = env.arg_pass_registers[idx]
                     else:
